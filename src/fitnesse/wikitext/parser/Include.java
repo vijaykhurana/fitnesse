@@ -1,11 +1,15 @@
 package fitnesse.wikitext.parser;
 
-import fitnesse.wiki.PageData;
 import fitnesse.wiki.PathParser;
+import fitnesse.wiki.WikiPageProperty;
+
+import java.util.Collection;
+import java.util.Collections;
 
 public class Include extends SymbolType implements Rule, Translation {
     private static final String[] setUpSymbols = new String[] {"COLLAPSE_SETUP"};
     private static final String includeHelpOption = "-h";
+    public static final String TEARDOWN = "teardown";
 
     public Include() {
         super("Include");
@@ -13,7 +17,7 @@ public class Include extends SymbolType implements Rule, Translation {
         wikiRule(this);
         htmlTranslation(this);
     }
-    
+
     @Override
     public Maybe<Symbol> parse(Symbol current, Parser parser) {
         Symbol next = parser.moveNext(1);
@@ -31,12 +35,11 @@ public class Include extends SymbolType implements Rule, Translation {
         if (!next.isType(SymbolType.Text) && !next.isType(WikiWord.symbolType)) return Symbol.nothing;
 
         String includedPageName = next.getContent();
-        if (parser.peek().isType(SymbolType.Text)) {
-          Maybe<String> remainderOfPageName = parser.parseToAsString(SymbolType.Whitespace);
-          if (!remainderOfPageName.isNothing()) {
-            includedPageName += remainderOfPageName.getValue();
-          }
+        while (parser.peek().isType(SymbolType.Text) || parser.peek().isType(WikiWord.symbolType)) {
+          Symbol remainderOfPageName = parser.moveNext(1);
+          includedPageName += remainderOfPageName.getContent();
         }
+
         SourcePage sourcePage = parser.getPage().getNamedPage();
 
         // Record the page name anyway, since we might want to show an error if it's invalid
@@ -51,7 +54,7 @@ public class Include extends SymbolType implements Rule, Translation {
           current.add("").add(new Symbol(SymbolType.Style, "error").add(includedPage.because()));
         }
         else if (includeHelpOption.equals(option)) {
-        	String helpText = includedPage.getValue().getProperty(PageData.PropertyHELP);	
+        	String helpText = includedPage.getValue().getProperty(WikiPageProperty.HELP);
         	current.add("").add(Parser.make(
         			parser.getPage(),helpText).parse());
         } else {
@@ -71,7 +74,7 @@ public class Include extends SymbolType implements Rule, Translation {
         parser.moveNext(1);
       }
 
-      return new Maybe<Symbol>(current);
+      return new Maybe<>(current);
     }
 
     @Override
@@ -88,7 +91,9 @@ public class Include extends SymbolType implements Rule, Translation {
             String collapseState = stateForOption(option, symbol);
             String title = "Included page: "
                     + translator.translate(symbol.childAt(1));
-            return Collapsible.generateHtml(collapseState, title, translator.translate(symbol.childAt(3)));
+            Collection<String> extraCollapsibleClass =
+                    option.equals("-teardown") ? Collections.singleton(TEARDOWN) : Collections.<String>emptySet();
+            return Collapsible.generateHtml(collapseState, title, translator.translate(symbol.childAt(3)), extraCollapsibleClass);
         }
     }
 

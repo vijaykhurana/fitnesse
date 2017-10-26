@@ -11,9 +11,9 @@ import fitnesse.testsystems.slim.Table;
 
 public class DecisionTableCaller {
   protected class ColumnHeaderStore {
-    private Map<String, List<Integer>> columnNumbers = new HashMap<String, List<Integer>>();
+    private Map<String, List<Integer>> columnNumbers = new HashMap<>();
     private Map<String, Iterator<Integer>> columnNumberIterator;
-    private List<String> leftToRight = new ArrayList<String>();
+    private List<String> leftToRight = new ArrayList<>();
 
     public void add(String header, int columnNumber) {
       leftToRight.add(header);
@@ -37,7 +37,7 @@ public class DecisionTableCaller {
     }
 
     private void resetColumnNumberIterator() {
-      columnNumberIterator = new HashMap<String, Iterator<Integer>>();
+      columnNumberIterator = new HashMap<>();
       for (Map.Entry<String, List<Integer>> entry : columnNumbers.entrySet()) {
         columnNumberIterator.put(entry.getKey(), entry.getValue().iterator());
       }
@@ -49,9 +49,17 @@ public class DecisionTableCaller {
   protected ColumnHeaderStore funcStore = new ColumnHeaderStore();
   protected int columnHeaders;
   private final Table table;
+  private final boolean emptyCellsUseValueFromFirstDataRow;
+  private int firstDataRow = 2;
 
   public DecisionTableCaller(Table table) {
     this.table = table;
+    this.emptyCellsUseValueFromFirstDataRow =false;
+  }
+
+  public DecisionTableCaller(Table table, boolean emptyCellsUseValueFromFirstDataRow) {
+	this.table = table;
+	this.emptyCellsUseValueFromFirstDataRow = emptyCellsUseValueFromFirstDataRow;
   }
 
   protected void gatherConstructorParameters() {
@@ -61,8 +69,8 @@ public class DecisionTableCaller {
 	        cell = table.getCellContents(col-1, 0);
 	        constructorParameterStore.add(cell, col);
 	    }
-  } 
-  
+  }
+
   protected void gatherFunctionsAndVariablesFromColumnHeader() {
     columnHeaders = table.getColumnCountInRow(1);
     for (int col = 0; col < columnHeaders; col++)
@@ -79,6 +87,17 @@ public class DecisionTableCaller {
         varStore.add(cell, col);
       }
     }
+  }
+
+  protected String getDTCellContents(int col, int row){
+    String value = table.getCellContents(col, row);
+    if (shoudUseBaseLineValue(value))
+      value = table.getCellContents(col, firstDataRow );
+    return value;
+  }
+
+  private boolean shoudUseBaseLineValue(String valueToSet) {
+    return emptyCellsUseValueFromFirstDataRow && valueToSet != null &&  valueToSet.isEmpty();
   }
 
   protected void checkRow(int row) throws SyntaxError {

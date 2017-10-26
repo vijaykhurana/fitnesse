@@ -4,6 +4,7 @@ package util;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
+import java.io.Closeable;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -13,24 +14,26 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
-import java.io.UnsupportedEncodingException;
-import java.io.Writer;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Scanner;
 import java.util.SortedSet;
 import java.util.TreeSet;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
 public class FileUtil {
 
+  private static final Logger LOG = Logger.getLogger(FileUtil.class.getName());
+
   public static final String CHARENCODING = "UTF-8";
 
-  public static File createFile(String path, String content) {
+  public static File createFile(String path, String content) throws IOException {
     return createFile(path, new ByteArrayInputStream(content.getBytes()));
   }
 
-  public static File createFile(String path, InputStream content) {
+  public static File createFile(String path, InputStream content) throws IOException {
     String[] names = path.replace("/", File.separator).split(Pattern.quote(File.separator));
     if (names.length == 1)
       return createFile(new File(path), content);
@@ -46,27 +49,20 @@ public class FileUtil {
     }
   }
 
-  public static File createFile(File file, String content) {
-    try {
-      return createFile(file, content.getBytes(CHARENCODING));
-    } catch (UnsupportedEncodingException e) {
-      throw new RuntimeException(e);
-    }
+  public static File createFile(File file, String content) throws IOException {
+    return createFile(file, content.getBytes(CHARENCODING));
   }
 
 
-  public static File createFile(File file, byte[] bytes) {
+  public static File createFile(File file, byte[] bytes) throws IOException {
     return createFile(file, new ByteArrayInputStream(bytes));
   }
 
-  public static File createFile(File file, InputStream content) {
+  public static File createFile(File file, InputStream content) throws IOException {
     FileOutputStream fileOutput = null;
     try {
       fileOutput = new FileOutputStream(file);
       FileUtil.copyBytes(content, fileOutput);
-    }
-    catch (IOException e) {
-      throw new RuntimeException(e);
     }
     finally {
       if (fileOutput != null)
@@ -83,11 +79,11 @@ public class FileUtil {
     return new File(path).mkdir();
   }
 
-  public static void deleteFileSystemDirectory(String dirPath) {
+  public static void deleteFileSystemDirectory(String dirPath) throws IOException {
     deleteFileSystemDirectory(new File(dirPath));
   }
 
-  public static void deleteFileSystemDirectory(File current) {
+  public static void deleteFileSystemDirectory(File current) throws IOException {
     File[] files = current.listFiles();
 
     for (int i = 0; files != null && i < files.length; i++) {
@@ -100,40 +96,16 @@ public class FileUtil {
     deleteFile(current);
   }
 
-  public static void deleteFile(String filename) {
+  public static void deleteFile(String filename) throws IOException {
     deleteFile(new File(filename));
   }
 
-  public static void deleteFile(File file) {
+  public static void deleteFile(File file) throws IOException{
     if (!file.exists())
       return;
-    for (int i = 0; i < 10; i++) {
-        if (file.delete()) {
-            waitUntilFileDeleted(file);
-            return;
-        }
-        waitFor(10);
-    }
-    throw new RuntimeException("Could not delete '" + file.getAbsoluteFile() + "'");
+    if (!file.delete())
+      throw new IOException("Could not delete '" + file.getAbsolutePath() + "'");
   }
-
-  private static void waitUntilFileDeleted(File file) {
-    int i = 10;
-    while (file.exists()) {
-      if (--i <= 0) {
-        break;
-      }
-      waitFor(500);
-    }
-  }
-    
-    private static void waitFor(int milliseconds) {
-        try {
-          Thread.sleep(milliseconds);
-        }
-        catch (InterruptedException e) {
-        }
-    }
 
   public static String getFileContent(String path) throws IOException {
     File input = new File(path);
@@ -149,23 +121,21 @@ public class FileUtil {
     FileInputStream stream = null;
     try {
       stream = new FileInputStream(input);
-      byte[] bytes = new StreamReader(stream).readBytes((int) size);
-      return bytes;
+      return new StreamReader(stream).readBytes((int) size);
     } finally {
-      if (stream != null)
-        stream.close();
+      close(stream);
     }
   }
 
   public static LinkedList<String> getFileLines(File file) throws IOException {
-    LinkedList<String> lines = new LinkedList<String>();
+    LinkedList<String> lines = new LinkedList<>();
     BufferedReader reader = new BufferedReader(new FileReader(file));
     String line;
     try {
       while ((line = reader.readLine()) != null)
         lines.add(line);
     } finally {
-      reader.close();
+      close(reader);
     }
     return lines;
   }
@@ -199,8 +169,8 @@ public class FileUtil {
   }
 
   public static File[] getDirectoryListing(File dir) {
-    SortedSet<File> dirSet = new TreeSet<File>();
-    SortedSet<File> fileSet = new TreeSet<File>();
+    SortedSet<File> dirSet = new TreeSet<>();
+    SortedSet<File> fileSet = new TreeSet<>();
     File[] files = dir.listFiles();
     if (files == null)
       return new File[0];
@@ -210,40 +180,19 @@ public class FileUtil {
       else
         fileSet.add(file);
     }
-    List<File> fileList = new LinkedList<File>();
+    List<File> fileList = new LinkedList<>();
     fileList.addAll(dirSet);
     fileList.addAll(fileSet);
     return fileList.toArray(new File[fileList.size()]);
   }
 
-  public static void close(Writer writer) {
-    if (writer != null) {
+  public static void close(Closeable closeable) {
+    if (closeable != null) {
       try {
-        writer.close();
+        closeable.close();
       } catch (IOException e) {
-        throw new RuntimeException("Unable to close writer", e);
+        LOG.log(Level.INFO, "Unable to close " + closeable, e);
       }
     }
   }
-
-  public static void close(OutputStream output) {
-    if (output != null) {
-      try {
-        output.close();
-      } catch (IOException e) {
-        throw new RuntimeException("Unable to close outputstream", e);
-      }
-    }
-  }
-
-  public static void close(InputStream input) {
-    if (input != null) {
-      try {
-        input.close();
-      } catch (IOException e) {
-        throw new RuntimeException("Unable to close inputstream", e);
-      }
-    }
-  }
-
 }

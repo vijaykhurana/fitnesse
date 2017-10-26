@@ -1,60 +1,47 @@
 package fitnesse.testsystems.slim;
 
-import java.io.IOException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
 import fitnesse.slim.JavaSlimFactory;
+import fitnesse.slim.SlimServer;
 import fitnesse.slim.SlimService;
-import fitnesse.testsystems.CommandRunner;
+import fitnesse.slim.fixtureInteraction.FixtureInteraction;
+import fitnesse.testsystems.ClientBuilder;
 import fitnesse.testsystems.Descriptor;
-import fitnesse.testsystems.MockCommandRunner;
+
+import static fitnesse.testsystems.slim.SlimClientBuilder.SLIM_FLAGS;
 
 /**
  * In-process version, mainly for testing FitNesse itself.
  */
-public class InProcessSlimClientBuilder extends SlimClientBuilder {
-  private static final Logger LOG = Logger.getLogger(InProcessSlimClientBuilder.class.getName());
+public class InProcessSlimClientBuilder extends ClientBuilder<SlimClient> {
 
   public InProcessSlimClientBuilder(Descriptor descriptor) {
     super(descriptor);
   }
 
   @Override
-  public SlimCommandRunningClient build() throws IOException {
-    CommandRunner commandRunner = new MockCommandRunner(getExecutionLogListener());
-    final String[] slimArguments = buildArguments();
-    createSlimService(slimArguments);
-
-    return new SlimCommandRunningClient(commandRunner, determineSlimHost(), getSlimPort(), determineTimeout(), getSlimVersion(), determineSSL(), determineHostSSLParameterClass());
+  public SlimClient build() {
+    final SlimService.Options options = SlimService.parseCommandLine(getSlimFlags());
+    Integer statementTimeout = options != null ? options.statementTimeout : null;
+    SlimServer slimServer = createSlimServer(statementTimeout, isDebug());
+    return new InProcessSlimClient(getTestSystemName(), slimServer, getExecutionLogListener());
   }
 
   @Override
-  protected int getNextSlimPort() {
-    return 0;
+  protected String defaultTestRunner() {
+    return "in-process";
   }
 
-  void createSlimService(String[] args) throws IOException {
-    while (!tryCreateSlimService(args))
-      try {
-        Thread.sleep(10);
-      } catch (InterruptedException e) {
-        LOG.log(Level.WARNING, "Interrupted while waiting for Slim server to come on line", e);
-      }
+  protected SlimServer createSlimServer(Integer timeout, boolean verbose) {
+    FixtureInteraction interaction = JavaSlimFactory.createInteraction(null);
+    return JavaSlimFactory.createJavaSlimFactory(interaction, timeout, verbose).getSlimServer();
   }
 
-  private boolean tryCreateSlimService(String[] args) throws IOException {
-    try {
-      SlimService.Options options = SlimService.parseCommandLine(args);
-      int actualPort = SlimService.startWithFactoryAsync(JavaSlimFactory.createJavaSlimFactory(options), options);
-      setSlimPort(actualPort);
-      return true;
-    } catch (IOException e) {
-      throw e;
-    } catch (Exception e) {
-      LOG.log(Level.WARNING, "Could not start async Slim service", e);
-      return false;
+  protected String[] getSlimFlags() {
+    String slimFlags = getVariable("slim.flags");
+    if (slimFlags == null) {
+      slimFlags = getVariable(SLIM_FLAGS);
     }
+    return slimFlags == null ? new String[] {} : parseCommandLine(slimFlags);
   }
 
 }

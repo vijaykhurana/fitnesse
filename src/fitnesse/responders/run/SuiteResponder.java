@@ -43,6 +43,8 @@ import fitnesse.testrunner.RunningTestingTracker;
 import fitnesse.testrunner.SuiteContentsFinder;
 import fitnesse.testrunner.SuiteFilter;
 import fitnesse.testsystems.ConsoleExecutionLogListener;
+import fitnesse.testsystems.ExecutionLogListener;
+import fitnesse.testsystems.TestExecutionException;
 import fitnesse.testsystems.TestSummary;
 import fitnesse.wiki.PageCrawler;
 import fitnesse.wiki.PageData;
@@ -78,8 +80,8 @@ public class SuiteResponder extends ChunkingResponder implements SecureResponder
 
   private boolean debug = false;
   private boolean remoteDebug = false;
-  protected boolean includeHtml = false;
-  int exitCode;
+  private boolean includeHtml = false;
+  private int exitCode;
 
   public SuiteResponder() {
     this(new WikiImporter());
@@ -95,7 +97,7 @@ public class SuiteResponder extends ChunkingResponder implements SecureResponder
   }
 
   @Override
-  public Response makeResponse(FitNesseContext context, Request request) {
+  public Response makeResponse(FitNesseContext context, Request request) throws Exception {
     Response result = super.makeResponse(context, request);
     if (result != response){
         return result;
@@ -141,7 +143,7 @@ public class SuiteResponder extends ChunkingResponder implements SecureResponder
     try {
       performExecution();
     } catch (Exception e) {
-      LOG.log(Level.WARNING, "error registered in test system", e);
+      LOG.log(Level.INFO, "Test system terminated with exception", e);
     }
 
     exitCode = mainFormatter.getErrorCount();
@@ -235,6 +237,9 @@ public class SuiteResponder extends ChunkingResponder implements SecureResponder
     } else {
       runner.addExecutionLogListener(new ConsoleExecutionLogListener());
     }
+    if (mainFormatter instanceof ExecutionLogListener) {
+      runner.addExecutionLogListener((ExecutionLogListener) mainFormatter);
+    }
     for (Formatter formatter : context.formatterFactory.createFormatters()) {
       runner.addTestSystemListener(formatter);
     }
@@ -287,15 +292,14 @@ public class SuiteResponder extends ChunkingResponder implements SecureResponder
   }
 
   protected BaseFormatter newJunitFormatter() {
-	  JunitReFormatter xmlFormatter = new JunitReFormatter(context, page, response.getWriter(), getSuiteHistoryFormatter());
-	  return xmlFormatter;
+    return new JunitReFormatter(context, page, response.getWriter(), getSuiteHistoryFormatter());
   }
 
   protected BaseFormatter newHtmlFormatter() {
     return new SuiteHtmlFormatter(page, response.getWriter());
   }
 
-  protected void performExecution() throws IOException, InterruptedException {
+  protected void performExecution() throws TestExecutionException {
     MultipleTestsRunner runner = newMultipleTestsRunner(getPagesToRun());
     runningTestingTracker.addStartedProcess(testRunId, runner);
     if (isInteractive()) {
@@ -333,7 +337,11 @@ public class SuiteResponder extends ChunkingResponder implements SecureResponder
 
   public void addToResponse(String output) {
     if (!isClosed()) {
-      response.add(output);
+      try {
+        response.add(output);
+      } catch (IOException e) {
+        LOG.log(Level.WARNING, "Unable to send output", e);
+      }
     }
   }
 
@@ -345,7 +353,7 @@ public class SuiteResponder extends ChunkingResponder implements SecureResponder
     isClosed = true;
   }
 
-  void closeHtmlResponse(int exitCode) {
+  void closeHtmlResponse(int exitCode) throws IOException {
     if (!isClosed()) {
       setClosed();
       response.closeChunks();

@@ -22,14 +22,13 @@ public class AddChildPageResponder implements SecureResponder {
   private WikiPage pageTemplate;
   private String user;
 
-
   @Override
   public SecureOperation getSecureOperation() {
     return new SecureWriteOperation();
   }
 
   @Override
-  public Response makeResponse(FitNesseContext context, Request request) {
+  public Response makeResponse(FitNesseContext context, Request request) throws Exception {
     parseRequest(context, request);
     if (currentPage == null)
       return notFoundResponse(context, request);
@@ -43,20 +42,20 @@ public class AddChildPageResponder implements SecureResponder {
 
   private void parseRequest(FitNesseContext context, Request request) {
 	  user = request.getAuthorizationUsername();
-    childName = (String) request.getInput(EditResponder.PAGE_NAME);
+    childName = request.getInput(EditResponder.PAGE_NAME);
     childName = childName == null ? "null" : childName;
     childPath = PathParser.parse(childName);
     WikiPagePath currentPagePath = PathParser.parse(request.getResource());
     PageCrawler pageCrawler = context.getRootPage().getPageCrawler();
     currentPage = pageCrawler.getPage(currentPagePath);
     if (request.hasInput(NewPageResponder.PAGE_TEMPLATE)) {
-      pageTemplate = pageCrawler.getPage(PathParser.parse((String) request.getInput(NewPageResponder.PAGE_TEMPLATE)));
+      pageTemplate = pageCrawler.getPage(PathParser.parse(request.getInput(NewPageResponder.PAGE_TEMPLATE)));
     } else {
-      pageType = (String) request.getInput(EditResponder.PAGE_TYPE);
+      pageType = request.getInput(EditResponder.PAGE_TYPE);
     }
-    childContent = (String) request.getInput(EditResponder.CONTENT_INPUT_NAME);
-    helpText = (String) request.getInput(EditResponder.HELP_TEXT);
-    suites = (String) request.getInput(EditResponder.SUITES);
+    childContent = request.getInput(EditResponder.CONTENT_INPUT_NAME);
+    helpText = request.getInput(EditResponder.HELP_TEXT);
+    suites = request.getInput(EditResponder.SUITES);
     if (childContent == null)
       childContent = "!contents\n";
     if (pageTemplate == null && pageType == null)
@@ -100,21 +99,21 @@ public class AddChildPageResponder implements SecureResponder {
       childPageData.getProperties().remove("Suite");
       childPageData.setAttribute(pageType);
     }
-    childPageData.setAttribute(PageData.PropertyHELP, helpText);
-    childPageData.setAttribute(PageData.PropertySUITES, suites);
+    childPageData.setOrRemoveAttribute(PageData.PropertyHELP, helpText);
+    childPageData.setOrRemoveAttribute(PageData.PropertySUITES, suites);
     childPageData.setOrRemoveAttribute(PageData.LAST_MODIFYING_USER, user);
     childPage.commit(childPageData);
   }
 
-  private Response errorResponse(FitNesseContext context, Request request) {
+  private Response errorResponse(FitNesseContext context, Request request) throws Exception {
     return new ErrorResponder("Invalid Child Name").makeResponse(context, request);
   }
 
-  private Response alreadyExistsResponse(FitNesseContext context, Request request) {
+  private Response alreadyExistsResponse(FitNesseContext context, Request request) throws Exception {
     return new ErrorResponder("Child page already exists", 409).makeResponse(context, request);
   }
 
-  private Response notFoundResponse(FitNesseContext context, Request request) {
+  private Response notFoundResponse(FitNesseContext context, Request request) throws Exception {
     return new NotFoundResponder().makeResponse(context, request);
   }
 }

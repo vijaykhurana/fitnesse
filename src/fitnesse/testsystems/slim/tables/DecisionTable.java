@@ -7,17 +7,22 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import fitnesse.slim.instructions.CallInstruction;
 import fitnesse.slim.instructions.Instruction;
+import fitnesse.testsystems.TestExecutionException;
 import fitnesse.testsystems.slim.SlimTestContext;
 import fitnesse.testsystems.slim.Table;
 
 public class DecisionTable extends SlimTable {
   private static final String instancePrefix = "decisionTable";
+  protected MethodExtractor setterMethodExtractor;
+  protected MethodExtractor getterMethodExtractor;
+  protected boolean baselineDecisionTable = false;
+  
 
   public DecisionTable(Table table, String id, SlimTestContext context) {
     super(table, id, context);
   }
+
 
   @Override
   protected String getTableType() {
@@ -25,7 +30,7 @@ public class DecisionTable extends SlimTable {
   }
 
   @Override
-  public List<SlimAssertion> getAssertions() throws SyntaxError {
+  public List<SlimAssertion> getAssertions() throws TestExecutionException {
     if (table.getRowCount() == 2)
       throw new SyntaxError("DecisionTables should have at least three rows.");
         // or 1 if only the constructor of a class should be called
@@ -34,14 +39,16 @@ public class DecisionTable extends SlimTable {
     ScenarioTable scenario = getTestContext().getScenario(scenarioName);
     if (scenario != null) {
       return new ScenarioCaller().call(scenario);
-    } else{ 
-    	scenarioName =getFixtureName();
-    	scenario = getTestContext().getScenario(scenarioName);
-        if (scenario != null) {
-            return new ScenarioCallerWithConstuctorParameters().call(scenario);
-        }else{
-        	return new FixtureCaller().call(getFixtureName());
-        }
+    } else {
+      String fixtureName =getFixtureName();
+      scenario = getTestContext().getScenario(fixtureName);
+      if (scenario != null) {
+        return new ScenarioCallerWithConstuctorParameters().call(scenario);
+      } else {
+       	setterMethodExtractor = prepareMethodExtractorIfNull(setterMethodExtractor,"SLIM_DT_SETTER");
+       	getterMethodExtractor = prepareMethodExtractorIfNull(getterMethodExtractor,"SLIM_DT_GETTER");
+       	return new FixtureCaller().call(fixtureName);
+      }
     }
   }
 
@@ -61,15 +68,33 @@ public class DecisionTable extends SlimTable {
     return callAndAssign(symbolName, getTableName(), functionName);
   }
 
+  private MethodExtractor prepareMethodExtractorIfNull(MethodExtractor current, String sourceVariableName) throws SyntaxError{
+
+  	if (current == null){
+  		String setterString = this.getTestContext().getPageToTest().getVariable(sourceVariableName);
+  		try{
+  		    if (setterString != null && !setterString.isEmpty() ) current = new MethodExtractor(setterString);
+  		    else{
+  		        current = new MethodExtractor();
+  		    }
+
+  		}catch (Exception cause ){
+  			SyntaxError sE =  new SyntaxError(sourceVariableName+ " variable could not be parsed:\n"+setterString+"\nCause:"+cause.getMessage());
+  			sE.initCause(cause);
+  			throw sE;
+  		}
+  	}
+  	return current;
+  }
 
   private class ScenarioCaller extends DecisionTableCaller {
     public ScenarioCaller() {
-      super(table);
+      super(table, isBaselineDecisionTable());
     }
 
-    public ArrayList<SlimAssertion> call(ScenarioTable scenario) throws SyntaxError {
+    public ArrayList<SlimAssertion> call(ScenarioTable scenario) throws TestExecutionException {
     	gatherFunctionsAndVariablesFromColumnHeader();
-      ArrayList<SlimAssertion> assertions = new ArrayList<SlimAssertion>();
+      ArrayList<SlimAssertion> assertions = new ArrayList<>();
       for (int row = 2; row < table.getRowCount(); row++){
         assertions.addAll(callScenarioForRow(scenario, row));
         assertions.addAll(callFunctions(row));
@@ -77,13 +102,13 @@ public class DecisionTable extends SlimTable {
       return assertions;
     }
 
-    private List<SlimAssertion> callScenarioForRow(ScenarioTable scenario, int row) throws SyntaxError {
+    private List<SlimAssertion> callScenarioForRow(ScenarioTable scenario, int row) throws TestExecutionException {
       checkRow(row);
       return scenario.call(getArgumentsForRow(row), DecisionTable.this, row);
     }
 
     private List<SlimAssertion> callFunctions(int row) {
-        List<SlimAssertion> instructions = new ArrayList<SlimAssertion>();
+        List<SlimAssertion> instructions = new ArrayList<>();
         for (String functionName : funcStore.getLeftToRightAndResetColumnNumberIterator()) {
           instructions.add(callFunctionInRow(functionName, row));
         }
@@ -96,35 +121,29 @@ public class DecisionTable extends SlimTable {
         String assignedSymbol = ifSymbolAssignment(col, row);
         SlimAssertion assertion;
         if (assignedSymbol != null) {
-        	assertion= makeAssertion(callAndAssign(assignedSymbol, "scriptTable" + "Actor", "cloneSymbol", "$"+functionName),
+        	assertion= makeAssertion(callAndAssign(assignedSymbol, "scriptTable" + "Actor", "cloneSymbol", "$"+name),
         			new ReturnedSymbolExpectation(col, row, name, assignedSymbol));
         } else {
-          assertion = makeAssertion(Instruction.NOOP_INSTRUCTION, new ReturnedSymbolExpectation(col, row, name));
+          assertion = makeAssertion(Instruction.NOOP_INSTRUCTION, new ReturnedSymbolExpectation(getDTCellContents(col, row), col, row, name));
         }
         return assertion;
       }
 
-    
+
     private Map<String, String> getArgumentsForRow(int row) {
-      Map<String, String> scenarioArguments = new HashMap<String, String>();
+      Map<String, String> scenarioArguments = new HashMap<>();
       for (String var : constructorParameterStore.getLeftToRightAndResetColumnNumberIterator()) {
           String disgracedVar = Disgracer.disgraceMethodName(var);
           int col = constructorParameterStore.getColumnNumber(var);
           String valueToSet = table.getCellContents(col, 0);
           scenarioArguments.put(disgracedVar, valueToSet);
-      }      
+      }
       for (String var : varStore.getLeftToRightAndResetColumnNumberIterator()) {
         String disgracedVar = Disgracer.disgraceMethodName(var);
         int col = varStore.getColumnNumber(var);
-        String valueToSet = table.getCellContents(col, row);
+        String valueToSet = getDTCellContents(col, row);
         scenarioArguments.put(disgracedVar, valueToSet);
       }
-//      for (String var : funcStore.getLeftToRightAndResetColumnNumberIterator()) {
-//          String disgracedVar = Disgracer.disgraceMethodName(var);
-//          int col = funcStore.getColumnNumber(var);
-//          String valueToSet = table.getCellContents(col, row);
-//          scenarioArguments.put(disgracedVar, valueToSet);
-//      }
       return scenarioArguments;
     }
   }
@@ -135,14 +154,14 @@ public class DecisionTable extends SlimTable {
 	      gatherConstructorParameters();
 	    }
   }
-  
+
   private class FixtureCaller extends DecisionTableCaller {
     public FixtureCaller() {
-      super(table);
+      super(table,isBaselineDecisionTable() );
     }
 
     public List<SlimAssertion> call(String fixtureName) throws SyntaxError {
-      final List<SlimAssertion> assertions = new ArrayList<SlimAssertion>();
+      final List<SlimAssertion> assertions = new ArrayList<>();
       assertions.add(constructFixture(fixtureName));
       assertions.add(makeAssertion(
               callFunction(getTableName(), "table", tableAsList()),
@@ -153,7 +172,7 @@ public class DecisionTable extends SlimTable {
     }
 
     private List<SlimAssertion> invokeRows() throws SyntaxError {
-      List<SlimAssertion> assertions = new ArrayList<SlimAssertion>();
+      List<SlimAssertion> assertions = new ArrayList<>();
       assertions.add(callUnreportedFunction("beginTable", 0));
       gatherFunctionsAndVariablesFromColumnHeader();
       for (int row = 2; row < table.getRowCount(); row++)
@@ -163,7 +182,7 @@ public class DecisionTable extends SlimTable {
     }
 
     private List<SlimAssertion> invokeRow(int row) throws SyntaxError {
-      List<SlimAssertion> assertions = new ArrayList<SlimAssertion>();
+      List<SlimAssertion> assertions = new ArrayList<>();
       checkRow(row);
       assertions.add(callUnreportedFunction("reset", row));
       assertions.addAll(setVariables(row));
@@ -178,7 +197,7 @@ public class DecisionTable extends SlimTable {
     }
 
     private List<SlimAssertion> callFunctions(int row) {
-      List<SlimAssertion> instructions = new ArrayList<SlimAssertion>();
+      List<SlimAssertion> instructions = new ArrayList<>();
       for (String functionName : funcStore.getLeftToRightAndResetColumnNumberIterator()) {
         instructions.add(callFunctionInRow(functionName, row));
       }
@@ -189,26 +208,58 @@ public class DecisionTable extends SlimTable {
       int col = funcStore.getColumnNumber(functionName);
       String assignedSymbol = ifSymbolAssignment(col, row);
       SlimAssertion assertion;
+
+      Object[] args = new Object[] {};
+      MethodExtractorResult extractedGetter =  getterMethodExtractor.findRule(functionName);
+      if(extractedGetter != null){
+        functionName = extractedGetter.methodName;
+        args = extractedGetter.mergeParameters(args);
+      }
+
       if (assignedSymbol != null) {
-        assertion = makeAssertion(callAndAssign(assignedSymbol, functionName),
+        assertion = makeAssertion(callAndAssign(assignedSymbol, getTableName(), functionName, args),
                 new SymbolAssignmentExpectation(assignedSymbol, col, row));
       } else {
-        assertion = makeAssertion(callFunction(getTableName(), functionName),
-                new ReturnedValueExpectation(col, row));
+         assertion = makeAssertion(callFunction(getTableName(), functionName, args),
+                new ReturnedValueExpectation(col, row, getDTCellContents(col, row)));
       }
       return assertion;
     }
 
     private List<SlimAssertion> setVariables(int row) {
-      List<SlimAssertion> assertions = new ArrayList<SlimAssertion>();
+      List<SlimAssertion> assertions = new ArrayList<>();
       for (String var : varStore.getLeftToRightAndResetColumnNumberIterator()) {
         int col = varStore.getColumnNumber(var);
-        String valueToSet = table.getCellContents(col, row);
-        Instruction setInstruction = new CallInstruction(makeInstructionTag(), getTableName(), Disgracer.disgraceMethodName("set " + var), new Object[] {valueToSet});
+        String valueToSet = getDTCellContents(col, row);
+
+        Object[] args = new Object[] {valueToSet};
+   	    MethodExtractorResult extractedSetter =  setterMethodExtractor.findRule(var);
+   	    if(extractedSetter != null){
+          var = extractedSetter.methodName;
+          args = extractedSetter.mergeParameters(args);
+          }else{
+            // Default for Setter
+            var = "set " + var;
+        }
+
+        Instruction setInstruction = callFunction(getTableName(), var, args);
         assertions.add(makeAssertion(setInstruction,
                 new VoidReturnExpectation(col, row)));
       }
       return assertions;
     }
   }
+
+  boolean isBaselineDecisionTable() {
+    String useFirstDataRowForEmpty = null;
+    useFirstDataRowForEmpty = this.getTestContext().getPageToTest().getVariable("SLIM_DT_BASELINE");
+    return ((useFirstDataRowForEmpty != null && !useFirstDataRowForEmpty.isEmpty())
+		  || baselineDecisionTable);
+  }
+
+
+  void setBaselineDecisionTable(boolean baselineDecisionTable) {
+    this.baselineDecisionTable = baselineDecisionTable;
+  }
+
 }

@@ -1,7 +1,6 @@
 package fitnesse.reporting.history;
 
 import java.io.File;
-import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
@@ -17,21 +16,17 @@ public class PageHistory extends PageHistoryReader{
   private int maxAssertions = 0;
   private BarGraph barGraph;
   private String fullPageName;
-  private final Map<Date, TestResultRecord> testResultMap = new HashMap<Date, TestResultRecord>();
-  private Map<Date, File> pageFiles = new HashMap<Date,File>();
+  private final Map<Date, TestResultRecord> testResultMap = new HashMap<>();
+  private Map<Date, File> pageFiles = new HashMap<>();
 
   public PageHistory(File pageDirectory) {
     fullPageName = pageDirectory.getName();
-    try {
-      readHistoryFromPageDirectory(pageDirectory);
-      compileBarGraph();
-    } catch (Exception e) {
-      throw new RuntimeException(e);
-    }
+    readHistoryFromPageDirectory(pageDirectory);
+    compileBarGraph();
   }
 
   private void compileBarGraph() {
-    List<Date> dates = new ArrayList<Date>(testResultMap.keySet());
+    List<Date> dates = new ArrayList<>(testResultMap.keySet());
     Collections.sort(dates, reverseChronologicalDateComparator());
     barGraph = new BarGraph();
     for (int i = 0; i < dates.size() && i < 20; i++) {
@@ -55,7 +50,7 @@ public class PageHistory extends PageHistoryReader{
   }
 
   @Override
-  void processTestFile(TestResultRecord record) throws ParseException {
+  void processTestFile(TestResultRecord record) {
     Date date = record.getDate();
     addTestResult(record, date);
     countResult(record);
@@ -75,17 +70,16 @@ public class PageHistory extends PageHistoryReader{
   }
 
   public String getPageFileName(Date date){
-    if(pageFiles.get(date) != null)
-    return pageFiles.get(date).getName();
+    if (pageFiles.get(date) != null) {
+      return pageFiles.get(date).getName();
+    }
     return null;
   }
-
 
   private void setMaxAssertions(TestResultRecord summary) {
     int assertions = summary.getRight() + summary.getWrong() + summary.getExceptions();
     maxAssertions = Math.max(maxAssertions, assertions);
   }
-
 
   private void setMinMaxDate(Date date) {
     if (minDate == null)
@@ -138,7 +132,7 @@ public class PageHistory extends PageHistoryReader{
 
   public SortedSet<Date> datesInChronologicalOrder() {
     Set<Date> dates = testResultMap.keySet();
-    SortedSet<Date> sortedDates = new TreeSet<Date>(Collections.reverseOrder());
+    SortedSet<Date> sortedDates = new TreeSet<>(Collections.reverseOrder());
     sortedDates.addAll(dates);
     return sortedDates;
   }
@@ -163,7 +157,7 @@ public class PageHistory extends PageHistoryReader{
 
   public Date getLatestDate() {
     Set<Date> dateSet = testResultMap.keySet();
-    List<Date> dates = new ArrayList<Date>(dateSet);
+    List<Date> dates = new ArrayList<>(dateSet);
     Collections.sort(dates);
     return dates.get(dates.size()-1);
   }
@@ -199,7 +193,7 @@ public class PageHistory extends PageHistoryReader{
   public static class BarGraph {
     private Date startingDate;
     private Date endingDate;
-    private List<PassFailReport> passFailList = new ArrayList<PassFailReport>();
+    private List<PassFailReport> passFailList = new ArrayList<>();
 
     public Date getStartingDate() {
       return new Date(startingDate.getTime());

@@ -20,7 +20,7 @@ import fitnesse.wiki.fs.FileVersion;
 public class RenameFileResponder implements SecureResponder {
 
   @Override
-  public Response makeResponse(FitNesseContext context, final Request request) throws IOException {
+  public Response makeResponse(FitNesseContext context, final Request request) throws Exception {
     Response response = new SimpleResponse();
     String resource = request.getResource();
     File rootPath = new File(context.getRootPagePath());
@@ -30,8 +30,8 @@ public class RenameFileResponder implements SecureResponder {
       return new ErrorResponder("Invalid path: " + resource).makeResponse(context, request);
     }
 
-    final String oldFileName = (String) request.getInput("filename");
-    final String newFileName = ((String) request.getInput("newName")).trim();
+    final String oldFileName = request.getInput("filename");
+    final String newFileName = request.getInput("newName").trim();
 
     final File oldFile = new File(pathName, oldFileName);
     final File newFile = new File(pathName, newFileName);

@@ -4,7 +4,6 @@ package fitnesse.responders.run;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.IOException;
 
 import fitnesse.FitNesseContext;
 import fitnesse.http.MockRequest;
@@ -15,11 +14,14 @@ import fitnesse.responders.run.TestResponderTest.JunitTestUtilities;
 import fitnesse.responders.run.TestResponderTest.XmlTestUtilities;
 import fitnesse.testsystems.TestSummary;
 import fitnesse.testutil.FitNesseUtil;
+import fitnesse.util.Clock;
+import fitnesse.util.DateAlteringClock;
+import fitnesse.util.DateTimeUtil;
+import fitnesse.util.XmlUtil;
 import fitnesse.wiki.PageData;
 import fitnesse.wiki.PathParser;
 import fitnesse.wiki.WikiPage;
 import fitnesse.wiki.WikiPageUtil;
-
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -27,10 +29,6 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
-import fitnesse.util.Clock;
-import fitnesse.util.DateAlteringClock;
-import fitnesse.util.DateTimeUtil;
-import fitnesse.util.XmlUtil;
 import static org.junit.Assert.*;
 import static util.RegexTestCase.*;
 
@@ -90,7 +88,7 @@ public class SuiteResponderTest {
     FitNesseUtil.destroyTestContext();
   }
 
-  private String runSuite() throws IOException {
+  private String runSuite() throws Exception {
     Response response = responder.makeResponse(context, request);
     MockResponseSender sender = new MockResponseSender();
     sender.doSending(response);
@@ -104,7 +102,7 @@ public class SuiteResponderTest {
     String results = runSuite();
     assertSubString("href=\\\"#TestOne1\\\"", results);
     assertSubString("1 right", results);
-    assertSubString("id=\"TestOne1\"", results);
+    assertSubString("name=\"TestOne1\"", results);
     assertSubString(" href=\"SuitePage.TestOne\"", results);
     assertSubString("PassFixture", results);
   }
@@ -131,8 +129,8 @@ public class SuiteResponderTest {
     assertSubString("href=\\\"#TestTwo2\\\"", results);
     assertSubString("1 right", results);
     assertSubString("2 wrong", results);
-    assertSubString("id=\"TestOne1\"", results);
-    assertSubString("id=\"TestTwo2\"", results);
+    assertSubString("name=\"TestOne1\"", results);
+    assertSubString("name=\"TestTwo2\"", results);
     assertSubString("PassFixture", results);
     assertSubString("FailFixture", results);
   }
@@ -151,7 +149,7 @@ public class SuiteResponderTest {
     assertNotSubString("href=\\\"#TestTwo2\\\"", results);
     assertSubString("1 right", results);
     assertSubString("0 wrong", results);
-    assertSubString("id=\"TestOne1\"", results);
+    assertSubString("name=\"TestOne1\"", results);
     assertNotSubString("id=\"TestTwo2\"", results);
     assertSubString("PassFixture", results);
     assertNotSubString("FailFixture", results);
@@ -191,9 +189,11 @@ public class SuiteResponderTest {
   }
 
   @Test
-  public void testExecutionStatusAppears() throws Exception {
+  public void testExecutionLogLinkAppears() throws Exception {
     String results = runSuite();
-    assertHasRegexp("Tests Executed OK", results);
+    // Lots of escaping: the content is escaped, since it's written from Javascript.
+    // Everything needs to be double escaped because it's handled as a regexp.
+    assertHasRegexp("class=\\\\\"ok\\\\\">Execution Log", results);
   }
 
   @Test
@@ -336,7 +336,7 @@ public class SuiteResponderTest {
     assertHasRegexp("<td>fitnesse.testutil.PassFixture</td>", results);
     assertHasRegexp("<td><span class=\"pass\">wow</span></td>", results);
     assertHasRegexp("<h3>fit:fit.FitServer</h3>", results);
-    assertHasRegexp("<h3>slim:fitnesse.slim.SlimService", results);
+    assertHasRegexp("<h3>slim:in-process", results);
   }
 
   @Test
@@ -382,7 +382,7 @@ public class SuiteResponderTest {
     assertEquals("0",testResultsElement.getAttribute("failures"));
     assertEquals("0",testResultsElement.getAttribute("disabled"));
     assertEquals("0",testResultsElement.getAttribute("errors"));
-    
+
     NodeList resultList = testResultsElement.getElementsByTagName("testcase");
     assertEquals(2, resultList.getLength());
     Element testResult;
@@ -473,7 +473,7 @@ public class SuiteResponderTest {
   }
 
   @Test
-  public void exitCodeHeaderIsErrorCountForXml() throws IOException {
+  public void exitCodeHeaderIsErrorCountForXml() throws Exception {
     request.addInput("format", "xml");
     addTestToSuite("TestFailingTest", fitFailFixture);
     String results = runSuite();
@@ -481,7 +481,23 @@ public class SuiteResponderTest {
   }
 
   @Test
-  public void loadsCustomFormatters() throws IOException {
+  public void showExecutionLogInXmlFormat() throws Exception {
+    request.addInput("format", "xml");
+    request.addInput("nochunk", "nochunk");
+    addTestToSuite("SlimTest", simpleSlimDecisionTable);
+
+    String results = runSuite();
+
+    assertHasRegexp("<executionLog>", results);
+    assertHasRegexp("<testSystem>fit:fit.FitServer</testSystem>", results);
+    assertHasRegexp("<testSystem>slim:in-process</testSystem>", results);
+    assertHasRegexp("<exitCode>0</exitCode>", results);
+    assertHasRegexp("<stdOut>.*</stdOut>", results);
+    assertHasRegexp("<stdErr>.*</stdErr>", results);
+  }
+
+  @Test
+  public void loadsCustomFormatters() throws Exception {
 
     context.formatterFactory.registerFormatter(FooFormatter.class);
     FooFormatter.initialized = false;

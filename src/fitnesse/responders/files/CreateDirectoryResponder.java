@@ -19,11 +19,11 @@ import fitnesse.wiki.fs.FileVersion;
 
 public class CreateDirectoryResponder implements SecureResponder {
   @Override
-  public Response makeResponse(FitNesseContext context, Request request) throws IOException {
+  public Response makeResponse(FitNesseContext context, Request request) throws Exception {
     SimpleResponse response = new SimpleResponse();
 
     String resource = request.getResource();
-    String dirname = (String) request.getInput("dirname");
+    String dirname = request.getInput("dirname");
     final File file = new File(new File(context.getRootPagePath(), resource), dirname);
 
     if (!FileResponder.isInFilesDirectory(new File(context.getRootPagePath()), file)) {

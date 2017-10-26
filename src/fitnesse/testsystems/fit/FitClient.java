@@ -30,7 +30,7 @@ public class FitClient implements SocketAccepter {
   private Thread fitListeningThread;
 
   public FitClient() {
-    this.listeners = new LinkedList<FitClientListener>();
+    this.listeners = new LinkedList<>();
   }
 
   public void addFitClientListener(FitClientListener listener) {
@@ -66,7 +66,8 @@ public class FitClient implements SocketAccepter {
       try {
         fitListeningThread.join();
       } catch (InterruptedException e) {
-        LOG.log(Level.FINE, "Wait for join of listening thread interrupted", e);
+        LOG.log(Level.FINE, "Wait for join of listening thread interrupted");
+        Thread.currentThread().interrupt();
       }
   }
 
@@ -85,7 +86,7 @@ public class FitClient implements SocketAccepter {
       throw new InterruptedException("FitClient was killed");
   }
 
-  private boolean finishedReading() {
+  private boolean finishedReading() throws InterruptedException {
     while (stateIndeterminate())
       shortSleep();
     return isDoneSending && received == sent;
@@ -102,17 +103,13 @@ public class FitClient implements SocketAccepter {
     return (received == sent) && !isDoneSending;
   }
 
-  private void shortSleep() {
-    try {
-      Thread.sleep(10);
-    } catch (InterruptedException e) {
-      LOG.log(Level.FINE, "sleep interrupted", e);
-    }
+  private void shortSleep() throws InterruptedException {
+    Thread.sleep(10);
   }
 
-  public void exceptionOccurred(Throwable e) {
+  public void exceptionOccurred(Throwable cause) {
     for (FitClientListener listener : listeners)
-      listener.exceptionOccurred(e);
+      listener.exceptionOccurred(cause);
   }
 
   private class FitListeningRunnable implements Runnable {
@@ -121,16 +118,15 @@ public class FitClient implements SocketAccepter {
       listenToFit();
     }
 
-
     private void listenToFit() {
       try {
         attemptToListenToFit();
       } catch (Exception e) {
-        exceptionOccurred(e);
+         exceptionOccurred(e);
       }
     }
 
-    private void attemptToListenToFit() throws IOException {
+    private void attemptToListenToFit() throws IOException, InterruptedException {
       while (!finishedReading()) {
         int size;
         size = FitProtocol.readSize(fitOutput);

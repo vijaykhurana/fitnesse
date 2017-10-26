@@ -21,23 +21,23 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class TestExecutionReport extends ExecutionReport {
-  private List<TestResult> results = new ArrayList<TestResult>();
+  private List<TestResult> results = new ArrayList<>();
 
   public TestExecutionReport(FitNesseVersion version, String rootPath) {
     super(version, rootPath);
   }
 
-  public TestExecutionReport(InputStream input) throws IOException, SAXException {
+  public TestExecutionReport(InputStream input) throws IOException, SAXException, InvalidReportException {
     Document xmlDoc = XmlUtil.newDocument(input);
     unpackXml(xmlDoc);
   }
 
-  public TestExecutionReport(File file) throws IOException, SAXException {
+  public TestExecutionReport(File file) throws IOException, SAXException, InvalidReportException {
     Document xmlDoc = XmlUtil.newDocument(file);
     unpackXml(xmlDoc);
   }
 
-  public TestExecutionReport(Document xmlDocument) {
+  public TestExecutionReport(Document xmlDocument) throws InvalidReportException {
     unpackXml(xmlDocument);
   }
 
@@ -59,6 +59,7 @@ public class TestExecutionReport extends ExecutionReport {
     result.exceptions = XmlUtil.getTextValue(xmlResult, "exceptions");
     result.relativePageName = XmlUtil.getTextValue(xmlResult, "relativePageName");
     result.tags = XmlUtil.getTextValue(xmlResult, "tags");
+    result.dateString = XmlUtil.getTextValue(xmlResult, "date");
     result.runTimeInMillis = XmlUtil.getTextValue(xmlResult, "runTimeInMillis");
 
     Element xmlInstructions = XmlUtil.getElementByTagName(xmlResult, "instructions");
@@ -100,7 +101,7 @@ public class TestExecutionReport extends ExecutionReport {
   }
 
   public List<TestResult> getResults() {
-    return new ArrayList<TestResult>(results);
+    return new ArrayList<>(results);
   }
 
   public void addResult(TestResult currentResult) {
@@ -133,8 +134,9 @@ public class TestExecutionReport extends ExecutionReport {
     public String exceptions;
     public String content;
     public String relativePageName;
-    public List<InstructionResult> instructions = new ArrayList<InstructionResult>();
+    public List<InstructionResult> instructions = new ArrayList<>();
     public String tags;
+    public String dateString;
     public long startTime;
     public String runTimeInMillis;
 
@@ -153,7 +155,11 @@ public class TestExecutionReport extends ExecutionReport {
     public String getExceptions() {
       return exceptions;
     }
-    
+
+    public String getDateString() {
+      return dateString;
+    }
+
     public String getRunTimeInMillis() {
       return runTimeInMillis;
     }
@@ -199,7 +205,7 @@ public class TestExecutionReport extends ExecutionReport {
   public static class InstructionResult {
     public String instruction;
     public String slimResult;
-    private List<Expectation> expectations = new ArrayList<Expectation>();
+    private List<Expectation> expectations = new ArrayList<>();
 
     public void addExpectation(Expectation expectation) {
       expectations.add(expectation);

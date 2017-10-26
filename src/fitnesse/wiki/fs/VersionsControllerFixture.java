@@ -5,6 +5,7 @@ import fitnesse.wiki.*;
 import util.FileUtil;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -35,7 +36,7 @@ public class VersionsControllerFixture {
     return rootPage;
   }
 
-  public void cleanUp() {
+  public void cleanUp() throws IOException {
     FileUtil.deleteFileSystemDirectory(TEST_DIR);
   }
 
@@ -49,7 +50,7 @@ public class VersionsControllerFixture {
   public void deletePage(String pageName) {
     final PageCrawler pageCrawler = rootPage.getPageCrawler();
     lastUsedPage = pageCrawler.getPage(PathParser.parse(pageName));
-    lastUsedPage.getParent().removeChildPage(lastUsedPage.getName());
+    lastUsedPage.remove();
   }
 
   public int historySize() {
@@ -67,7 +68,7 @@ public class VersionsControllerFixture {
   }
 
   public String contentForRevision(int n) {
-    List<VersionInfo> versions = new ArrayList<VersionInfo>(lastUsedPage.getVersions());
+    List<VersionInfo> versions = new ArrayList<>(lastUsedPage.getVersions());
     WikiPage page = lastUsedPage.getVersion(versions.get(versions.size() - 1 - n).getName());
     return page.getData().getContent();
   }

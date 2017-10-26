@@ -14,15 +14,15 @@ import util.FileUtil;
 
 public class PasswordFile {
   private final File passwordFile;
-  private Map<String, String> passwordMap = new HashMap<String, String>();
+  private Map<String, String> passwordMap = new HashMap<>();
   private PasswordCipher cipher = new TransparentCipher();
 
-  public PasswordFile(String filename) throws IOException {
+  public PasswordFile(String filename) throws IOException, ReflectiveOperationException {
     passwordFile = new File(filename);
     loadFile();
   }
 
-  public PasswordFile(String filename, PasswordCipher cipher) throws IOException {
+  public PasswordFile(String filename, PasswordCipher cipher) throws IOException, ReflectiveOperationException {
     this(filename);
     this.cipher = cipher;
   }
@@ -44,7 +44,7 @@ public class PasswordFile {
     savePasswords();
   }
 
-  private void loadFile() throws IOException {
+  private void loadFile() throws IOException, ReflectiveOperationException {
     LinkedList<String> lines = getPasswordFileLines();
     loadCipher(lines);
     loadPasswords(lines);
@@ -59,16 +59,12 @@ public class PasswordFile {
     }
   }
 
-  private void loadCipher(LinkedList<String> lines) {
+  private void loadCipher(LinkedList<String> lines) throws IllegalAccessException, ClassNotFoundException, InstantiationException {
     if (!lines.isEmpty()) {
       String firstLine = lines.getFirst();
       if (firstLine.startsWith("!")) {
         String cipherClassName = firstLine.substring(1);
-        try {
-          instantiateCipher(cipherClassName);
-        } catch (Exception e) {
-          throw new RuntimeException(e);
-        }
+        instantiateCipher(cipherClassName);
         lines.removeFirst();
       }
     }
@@ -80,7 +76,7 @@ public class PasswordFile {
   }
 
   private void savePasswords() throws FileNotFoundException {
-    List<String> lines = new LinkedList<String>();
+    List<String> lines = new LinkedList<>();
     lines.add("!" + cipher.getClass().getName());
     for (Map.Entry<String, String> entry : passwordMap.entrySet()) {
       String user = entry.getKey();
@@ -91,7 +87,7 @@ public class PasswordFile {
   }
 
   private LinkedList<String> getPasswordFileLines() throws IOException {
-    LinkedList<String> lines = new LinkedList<String>();
+    LinkedList<String> lines = new LinkedList<>();
     if (passwordFile.exists())
       lines = FileUtil.getFileLines(passwordFile);
     return lines;

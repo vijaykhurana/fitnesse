@@ -7,8 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
 
-import static fitnesse.slim.SlimException.isStopSuiteException;
-import static fitnesse.slim.SlimException.isStopTestException;
+import static fitnesse.slim.SlimException.*;
 import static java.lang.String.format;
 
 /**
@@ -18,22 +17,18 @@ import static java.lang.String.format;
 public class StatementExecutor implements StatementExecutorInterface {
   private static final String SLIM_HELPER_LIBRARY_INSTANCE_NAME = "SlimHelperLibrary";
   public static final String SLIM_AGENT_FIXTURE_HANDLES_SYMBOLS = "SLIM_AGENT_FIXTURE_HANDLES_SYMBOLS";
-  
+
   private boolean stopRequested = false;
   private SlimExecutionContext context;
-  private List<MethodExecutor> executorChain = new ArrayList<MethodExecutor>();
+  private List<MethodExecutor> executorChain = new ArrayList<>();
   private Pattern patternOfFixturesHandlingSymbols = null;
 
   public StatementExecutor() {
-    this(null);
+    this(new SlimExecutionContext(JavaSlimFactory.createInteraction(null)));
   }
 
   public StatementExecutor(SlimExecutionContext context) {
-    if (context == null) {
-      this.context = new SlimExecutionContext();
-    } else {
-      this.context = context;
-    }
+    this.context = context;
 
     executorChain.add(new FixtureMethodExecutor(this.context));
     executorChain.add(new SystemUnderTestMethodExecutor(this.context));
@@ -68,7 +63,7 @@ public class StatementExecutor implements StatementExecutorInterface {
     context.setVariable(name, value);
     checkForPatternOfFixturesHandlingSymbols(name);
   }
-  
+
   @Override
   public Object getSymbol(String symbolName) {
     MethodExecutionResult result = context.getVariable(symbolName);
@@ -140,16 +135,16 @@ public class StatementExecutor implements StatementExecutorInterface {
     }
     return results.getFirstResult();
   }
- 
+
   /**
-   *  
+   *
    * @return true is the fixture will handles symbols assignments and lookups itself.
    *         This should be a rare exception and is not recommended
-   *         
+   *
    *  Would be nice to use the classname but we don't know it at this point.
-   *         
+   *
    */
-  
+
   private Boolean ignoreSymbols(String instanceName, String methodName){
 	  try{
 
@@ -163,11 +158,11 @@ public class StatementExecutor implements StatementExecutorInterface {
 
   private void checkForPatternOfFixturesHandlingSymbols(String symbolName){
     if(!SLIM_AGENT_FIXTURE_HANDLES_SYMBOLS.equals(symbolName)) return;
-    // Special Symbol Name need to update 
+    // Special Symbol Name need to update
     try{
       MethodExecutionResult mer = context.getVariable(SLIM_AGENT_FIXTURE_HANDLES_SYMBOLS);
       if (mer == null) return;
-      
+
       try{
         if(mer.returnValue() == null){
           patternOfFixturesHandlingSymbols = null;
@@ -177,15 +172,15 @@ public class StatementExecutor implements StatementExecutorInterface {
       }catch (Exception e){
         patternOfFixturesHandlingSymbols = null;
       }
-      
+
     }catch (Exception e){
       return;
     }
-      
-    
+
+
   }
 
- 
+
   private void checkExceptionForStop(Throwable exception) {
     if (isStopTestException(exception) || isStopSuiteException(exception)) {
       stopRequested = true;

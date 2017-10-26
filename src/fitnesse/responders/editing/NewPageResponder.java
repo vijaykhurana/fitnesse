@@ -26,7 +26,7 @@ public class NewPageResponder implements Responder {
   public static final String PAGE_TYPES = "pageTypes";
 
   @Override
-  public Response makeResponse(FitNesseContext context, Request request) {
+  public Response makeResponse(FitNesseContext context, Request request) throws Exception {
 
     SimpleResponse response = new SimpleResponse();
     response.setContent(doMakeHtml(context, request));
@@ -54,13 +54,13 @@ public class NewPageResponder implements Responder {
     html.put(EditResponder.TEMPLATE_MAP, TemplateUtil.getTemplateMap(parentWikiPage));
     if (request.hasInput(PAGE_TEMPLATE)) {
       PageCrawler crawler = context.getRootPage().getPageCrawler();
-      String pageTemplate = (String) request.getInput(PAGE_TEMPLATE);
+      String pageTemplate = request.getInput(PAGE_TEMPLATE);
       WikiPage template = crawler.getPage(PathParser.parse(pageTemplate));
       html.put(EditResponder.CONTENT_INPUT_NAME, template.getData().getContent());
       html.put(EditResponder.PAGE_TYPE, PageType.fromWikiPage(template));
       html.put(PAGE_TEMPLATE, pageTemplate);
     } else if (request.hasInput(PAGE_TYPE)) {
-      String pageType = (String) request.getInput(PAGE_TYPE);
+      String pageType = request.getInput(PAGE_TYPE);
       // Validate page type:
       PageType.fromString(pageType);
       html.put(EditResponder.PAGE_TYPE, pageType);

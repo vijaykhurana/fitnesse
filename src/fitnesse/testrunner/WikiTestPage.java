@@ -13,12 +13,11 @@ import fitnesse.wiki.PathParser;
 import fitnesse.wiki.SymbolicPage;
 import fitnesse.wiki.WikiPage;
 import fitnesse.wiki.WikiPagePath;
-import fitnesse.wiki.WikitextPage;
 import fitnesse.wikitext.parser.HtmlTranslator;
 import fitnesse.wikitext.parser.Parser;
 import fitnesse.wikitext.parser.ParsingPage;
 import fitnesse.wikitext.parser.Symbol;
-import fitnesse.wikitext.parser.WikiSourcePage;
+import fitnesse.wiki.WikiSourcePage;
 
 // TODO: need 2 implementations, one for wiki text pages (Fit, Slim) and one for non-wiki text pages. See PagesByTestSystem
 public class WikiTestPage implements TestPage {
@@ -55,8 +54,7 @@ public class WikiTestPage implements TestPage {
   }
 
   private boolean containsWikitext() {
-    return (sourcePage instanceof SymbolicPage && ((SymbolicPage) sourcePage).containsWikitext())
-            || (sourcePage instanceof WikitextPage);
+    return SymbolicPage.containsWikitext(sourcePage);
   }
 
   @Override
@@ -83,13 +81,13 @@ public class WikiTestPage implements TestPage {
     }
   }
 
-
   protected String getPathSeparator() {
     String separator = sourcePage.getVariable(PageData.PATH_SEPARATOR);
     if (separator == null)
       separator = File.pathSeparator;
     return separator;
   }
+
 
   public WikiPage getSourcePage() {
     return sourcePage;
@@ -167,7 +165,9 @@ public class WikiTestPage implements TestPage {
 
   public boolean shouldIncludeScenarioLibraries() {
     // Should consider all of the decorated content to resolve those variables.
-    boolean isSlim = "slim".equalsIgnoreCase(sourcePage.getVariable(WikiPageIdentity.TEST_SYSTEM));
+    String testSystem = sourcePage.getVariable(WikiPageIdentity.TEST_SYSTEM);
+    boolean isSlim = "slim".equalsIgnoreCase(testSystem)
+                      || "slimCoverage".equalsIgnoreCase(testSystem);
     String includeScenarioLibraries = sourcePage.getVariable("INCLUDE_SCENARIO_LIBRARIES");
     boolean includeScenarios = "true".equalsIgnoreCase(includeScenarioLibraries);
     boolean notIncludeScenarios = "false".equalsIgnoreCase(includeScenarioLibraries);
@@ -197,7 +197,7 @@ public class WikiTestPage implements TestPage {
   }
 
   protected boolean isSuiteSetUpOrTearDownPage() {
-    return PageData.SUITE_SETUP_NAME.equals(getName()) || PageData.SUITE_TEARDOWN_NAME.equals(getName());
+    return isSuiteSetupOrTearDown(sourcePage);
   }
 
   protected WikiPage findInheritedPage(String pageName) {
@@ -205,7 +205,7 @@ public class WikiTestPage implements TestPage {
   }
 
   private List<WikiPage> findScenarioLibraries() {
-    final LinkedList<WikiPage> uncles = new LinkedList<WikiPage>();
+    final LinkedList<WikiPage> uncles = new LinkedList<>();
     if (shouldIncludeScenarioLibraries()) {
       sourcePage.getPageCrawler().traverseUncles("ScenarioLibrary", new TraversalListener<WikiPage>() {
         @Override
@@ -215,5 +215,10 @@ public class WikiTestPage implements TestPage {
       });
     }
     return uncles;
+  }
+
+  public static boolean isSuiteSetupOrTearDown(WikiPage wikiPage) {
+    String name = wikiPage.getName();
+    return (PageData.SUITE_SETUP_NAME.equals(name) || PageData.SUITE_TEARDOWN_NAME.equals(name));
   }
 }

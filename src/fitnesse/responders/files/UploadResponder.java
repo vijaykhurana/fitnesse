@@ -30,7 +30,7 @@ public class UploadResponder implements SecureResponder {
   private String rootPath;
 
   @Override
-  public Response makeResponse(FitNesseContext context, Request request) throws IOException {
+  public Response makeResponse(FitNesseContext context, Request request) throws Exception {
     rootPath = context.getRootPagePath();
     SimpleResponse response = new SimpleResponse();
 
@@ -44,6 +44,9 @@ public class UploadResponder implements SecureResponder {
 
       if (!FileResponder.isInFilesDirectory(new File(rootPath), file)) {
         return new ErrorResponder("Invalid path: " + uploadedFile.getName()).makeResponse(context, request);
+      }
+      if (FileResponder.isInFilesFitNesseDirectory(new File(rootPath), file)) {
+        return new ErrorResponder("It is not allowed to upload files in the files/fitnesse section.").makeResponse(context, request);
       }
 
       context.versionsController.makeVersion(new FileVersion() {

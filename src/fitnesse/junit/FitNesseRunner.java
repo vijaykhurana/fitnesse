@@ -20,6 +20,7 @@ import fitnesse.testrunner.MultipleTestsRunner;
 import fitnesse.testrunner.PagesByTestSystem;
 import fitnesse.testrunner.SuiteContentsFinder;
 import fitnesse.testsystems.ConsoleExecutionLogListener;
+import fitnesse.testsystems.TestExecutionException;
 import fitnesse.testsystems.TestSummary;
 import fitnesse.wiki.PageCrawler;
 import fitnesse.wiki.PathParser;
@@ -56,7 +57,7 @@ public class FitNesseRunner extends ParentRunner<WikiPage> {
 
     public boolean value();
   }
-  
+
   /**
    * The <code>PreventSystemExit</code> annotation specifies whether the {@link SystemExitSecurityManager} must be to prevent {@link System#exit(int)} calls. Default is false
    */
@@ -66,7 +67,7 @@ public class FitNesseRunner extends ParentRunner<WikiPage> {
 
     public boolean value() default true;
   }
-  
+
   /**
    * The <code>SuiteFilter</code> annotation specifies the suite filter of the Fitnesse suite
    * to be run, e.g.: fasttests
@@ -160,11 +161,13 @@ public class FitNesseRunner extends ParentRunner<WikiPage> {
   private String excludeSuiteFilter;
   private boolean debugMode;
   private boolean preventSystemExit;
-   private FitNesseContext context;
+  private FitNesseContext context;
+  private DescriptionFactory descriptionFactory;
   private List<WikiPage> children;
 
   public FitNesseRunner(Class<?> suiteClass) throws InitializationError {
     super(suiteClass);
+    descriptionFactory = new DescriptionFactory();
   }
 
   @Override
@@ -304,7 +307,7 @@ public class FitNesseRunner extends ParentRunner<WikiPage> {
     }
     return debugModeAnnotation.value();
   }
-  
+
   protected boolean shouldPreventSystemExit(Class<?> klass) throws Exception {
     PreventSystemExit preventSystemExitAnnotation = klass.getAnnotation(PreventSystemExit.class);
     if (null == preventSystemExitAnnotation) {
@@ -358,7 +361,7 @@ public class FitNesseRunner extends ParentRunner<WikiPage> {
 
   @Override
   protected Description describeChild(WikiPage child) {
-    return Description.createTestDescription(suiteClass, child.getPageCrawler().getFullPath().toString());
+    return getDescriptionFactory().createDescription(suiteClass, child);
   }
 
   @Override
@@ -389,20 +392,20 @@ public class FitNesseRunner extends ParentRunner<WikiPage> {
 
   protected void runPages(List<WikiPage>pages, final RunNotifier notifier) {
     MultipleTestsRunner testRunner = createTestRunner(pages);
-    addTestSystemListeners(notifier, testRunner, suiteClass);
+    addTestSystemListeners(notifier, testRunner, suiteClass, getDescriptionFactory());
     addExecutionLogListener(notifier, testRunner, suiteClass);
     System.setProperty(SystemExitSecurityManager.PREVENT_SYSTEM_EXIT, String.valueOf(preventSystemExit));
     try {
       executeTests(testRunner);
-    } catch (AssertionError e) {
-      notifier.fireTestFailure(new Failure(Description.createSuiteDescription(suiteClass), e));
-    } catch (Exception e) {
-      notifier.fireTestFailure(new Failure(Description.createSuiteDescription(suiteClass), e));
+    } catch (AssertionError | Exception e) {
+      Description description = getDescriptionFactory().createSuiteDescription(suiteClass);
+      notifier.fireTestFailure(new Failure(description, e));
     }
   }
 
-  protected void addTestSystemListeners(RunNotifier notifier, MultipleTestsRunner testRunner, Class<?> suiteClass) {
-    testRunner.addTestSystemListener(new JUnitRunNotifierResultsListener(notifier, suiteClass));
+  protected void addTestSystemListeners(RunNotifier notifier, MultipleTestsRunner testRunner, Class<?> suiteClass,
+                                        DescriptionFactory descriptionFactory) {
+    testRunner.addTestSystemListener(new JUnitRunNotifierResultsListener(notifier, suiteClass, descriptionFactory));
   }
 
   protected void addExecutionLogListener(RunNotifier notifier, MultipleTestsRunner testRunner, Class<?> suiteClass) {
@@ -463,7 +466,7 @@ public class FitNesseRunner extends ParentRunner<WikiPage> {
     return runner;
   }
 
-  private void executeTests(MultipleTestsRunner testRunner) throws IOException, InterruptedException {
+  private void executeTests(MultipleTestsRunner testRunner) throws IOException, TestExecutionException {
     JavaFormatter testFormatter = new JavaFormatter(suiteName);
     testFormatter.setResultsRepository(new JavaFormatter.FolderResultsRepository(outputDir));
     testRunner.addTestSystemListener(testFormatter);
@@ -480,8 +483,16 @@ public class FitNesseRunner extends ParentRunner<WikiPage> {
   }
 
   private List<WikiPage> listOf(WikiPage page) {
-    List<WikiPage> list = new ArrayList<WikiPage>(1);
+    List<WikiPage> list = new ArrayList<>(1);
     list.add(page);
     return list;
+  }
+
+  public DescriptionFactory getDescriptionFactory() {
+    return descriptionFactory;
+  }
+
+  public void setDescriptionFactory(DescriptionFactory descriptionFactory) {
+    this.descriptionFactory = descriptionFactory;
   }
 }

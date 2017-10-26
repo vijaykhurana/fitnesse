@@ -8,6 +8,7 @@ import fitnesse.slim.protocol.SlimDeserializer;
 import fitnesse.slim.protocol.SlimSerializer;
 
 import fitnesse.wiki.WikiPage;
+import fitnesse.wiki.WikiSourcePage;
 import fitnesse.wikitext.parser.*;
 import org.junit.Test;
 
@@ -53,7 +54,7 @@ public class PerformanceTest {
     /** For dramatic effect, run in debug mode */
     @Test
     public void listDeserializationTest() {
-      List<Object> objects = new ArrayList<Object>();
+      List<Object> objects = new ArrayList<>();
       for (int i = 0; i < 10000; i++) {
         objects.add(new String("This is string " + i));
       }

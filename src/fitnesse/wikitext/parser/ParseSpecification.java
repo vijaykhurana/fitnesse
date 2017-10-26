@@ -9,9 +9,9 @@ public class ParseSpecification {
     public static final int normalPriority = 0;
 
     private SymbolProvider provider = SymbolProvider.wikiParsingProvider;
-    private ArrayList<SymbolType> terminators = new ArrayList<SymbolType>();
-    private ArrayList<SymbolType> ignoresFirst = new ArrayList<SymbolType>();
-    private ArrayList<SymbolType> ends = new ArrayList<SymbolType>();
+    private ArrayList<SymbolType> terminators = new ArrayList<>();
+    private ArrayList<SymbolType> ignoresFirst = new ArrayList<>();
+    private ArrayList<SymbolType> ends = new ArrayList<>();
     private int priority = 0;
 
     public ParseSpecification provider(SymbolProvider provider) {
@@ -98,8 +98,8 @@ public class ParseSpecification {
 
     /**
      *
-     * @param parser
-     * @param scanner
+     * @param parser parser
+     * @param scanner scanner
      * @return a possible value if parser should stop.
      */
     public Maybe<Symbol> parseSymbol(Parser parser, Scanner scanner) {

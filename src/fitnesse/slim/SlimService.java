@@ -10,26 +10,26 @@ import java.util.Arrays;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
-import fitnesse.slim.fixtureInteraction.DefaultInteraction;
 import fitnesse.slim.fixtureInteraction.FixtureInteraction;
-import fitnesse.socketservice.SocketFactory;
+import fitnesse.socketservice.PlainServerSocketFactory;
+import fitnesse.socketservice.ServerSocketFactory;
+import fitnesse.socketservice.SslServerSocketFactory;
 import util.CommandLine;
 
-import static fitnesse.slim.JavaSlimFactory.createJavaSlimFactory;
+import static fitnesse.slim.JavaSlimFactory.*;
 
 public class SlimService {
-  public static final String OPTION_DESCRIPTOR = "[-v] [-i interactionClass] [-s statementTimeout] [-d] [-ssl parameterClass] port";
-  static FixtureInteraction interaction = getInteraction(null);
+  private static final String OPTION_DESCRIPTOR = "[-v] [-i interactionClass] [-s statementTimeout] [-d] [-ssl parameterClass] port";
 
   public static class Options {
-    final boolean verbose;
-    final int port;
-    final FixtureInteraction interaction;
+    public final boolean verbose;
+    public final int port;
+    public final FixtureInteraction interaction;
     /**
      * daemon mode: keep accepting new connections indefinitely.
      */
-    final boolean daemon;
-    final Integer statementTimeout;
+    public final boolean daemon;
+    public final Integer statementTimeout;
     final boolean useSSL;
     final String sslParameterClassName;
 
@@ -48,7 +48,6 @@ public class SlimService {
   private final SlimServer slimServer;
   private final boolean daemon;
   private final Executor executor = Executors.newFixedThreadPool(5);
-  static Thread service;
 
   public static void main(String[] args) throws IOException {
     Options options = parseCommandLine(args);
@@ -58,11 +57,12 @@ public class SlimService {
         System.exit(0);
       } catch (Exception e) {
         e.printStackTrace();
-        System.out.println("Exiting as exception occured: " + e.getMessage());
+        System.err.println("Exiting as exception occured: " + e.getMessage());
         System.exit(98);
       }
     } else {
       parseCommandLineFailed(args);
+      System.exit(97);
     }
   }
 
@@ -73,39 +73,31 @@ public class SlimService {
   }
 
   public static void startWithFactory(SlimFactory slimFactory, Options options) throws IOException {
-    SlimService slimservice = new SlimService(slimFactory.getSlimServer(options.verbose), options.port, options.interaction, options.daemon, options.useSSL, options.sslParameterClassName);
-    slimservice.accept();
-  }
-
-  // For testing only -- for now
-  public static synchronized int startWithFactoryAsync(SlimFactory slimFactory, Options options) throws IOException {
-    if (service != null && service.isAlive()) {
-      service.interrupt();
-      throw new SlimError("Already an in-process server running: " + service.getName() + " (alive=" + service.isAlive() + ")");
-    }
-    final SlimService slimservice = new SlimService(slimFactory.getSlimServer(options.verbose), options.port, options.interaction, options.daemon, options.useSSL, options.sslParameterClassName);
-    int actualPort = slimservice.getPort();
-    service = new Thread() {
-      @Override
-      public void run() {
-        try {
-          slimservice.accept();
-        } catch (IOException e) {
-          throw new SlimError(e);
-        }
+    ServerSocket socket;
+    if (options.port == 1) {
+      socket = new SlimPipeSocket();
+      if (options.daemon) {
+        System.err
+            .println("Warning: in Slim Pipe mode the daemon flag is not supported.");
       }
-    };
-    service.start();
-    return actualPort;
-  }
-
-  // For testing, mainly.
-  public static void waitForServiceToStopAsync() throws InterruptedException {
-    // wait for service to close.
-    for (int i = 0; i < 1000; i++) {
-      if (!service.isAlive())
-        break;
-      Thread.sleep(50);
+    } else {
+      ServerSocketFactory serverSocketFactory = options.useSSL ? new SslServerSocketFactory(
+          true, options.sslParameterClassName) : new PlainServerSocketFactory();
+      socket = serverSocketFactory.createServerSocket(options.port);
+    }
+    try {
+      SlimService slimservice = new SlimService(slimFactory.getSlimServer(),
+          socket, options.daemon);
+      slimservice.accept();
+    } catch (java.lang.OutOfMemoryError e) {
+      System.err.println("Out of Memory. Aborting.");
+      e.printStackTrace();
+      System.exit(99);
+      throw e;
+    } catch (BindException e) {
+      System.err.println("Can not bind to port " + options.port + ". Aborting.");
+      e.printStackTrace();
+      throw e;
     }
   }
 
@@ -115,34 +107,23 @@ public class SlimService {
       boolean verbose = commandLine.hasOption("v");
       String interactionClassName = commandLine.getOptionArgument("i", "interactionClass");
       String portString = commandLine.getArgument("port");
-      int port = (portString == null) ? 8099 : Integer.parseInt(portString);
+      int port = (portString == null) ? 1 : Integer.parseInt(portString);
       String statementTimeoutString = commandLine.getOptionArgument("s", "statementTimeout");
       Integer statementTimeout = (statementTimeoutString == null) ? null : Integer.parseInt(statementTimeoutString);
       boolean daemon = commandLine.hasOption("d");
       String sslParameterClassName = commandLine.getOptionArgument("ssl", "parameterClass");
       boolean useSSL = commandLine.hasOption("ssl");
-      return new Options(verbose, port, getInteraction(interactionClassName), daemon, statementTimeout, useSSL, sslParameterClassName);
+      FixtureInteraction interaction = createInteraction(interactionClassName);
+      return new Options(verbose, port, interaction, daemon, statementTimeout, useSSL, sslParameterClassName);
     }
     return null;
   }
 
-  public SlimService(SlimServer slimServer, int port, FixtureInteraction interaction, boolean daemon, boolean useSSL, String sslParameterClassName) throws IOException {
-    SlimService.interaction = interaction;
+  public SlimService(SlimServer slimServer, ServerSocket serverSocket, boolean daemon) throws IOException {
     this.daemon = daemon;
     this.slimServer = slimServer;
-
-    try {
-      serverSocket = SocketFactory.tryCreateServerSocket(port, useSSL, useSSL, sslParameterClassName);
-    } catch (java.lang.OutOfMemoryError e) {
-      System.err.println("Out of Memory. Aborting.");
-      e.printStackTrace();
-      System.exit(99);
-      throw e;
-    } catch (BindException e) {
-      System.err.println("Can not bind to port " + port + ". Aborting.");
-      e.printStackTrace();
-      throw e;
-    }
+    this.serverSocket = serverSocket;
+//
   }
 
   public int getPort() {
@@ -193,21 +174,5 @@ public class SlimService {
   private void acceptOne() throws IOException {
     Socket socket = serverSocket.accept();
     handle(socket);
-  }
-
-  @SuppressWarnings("unchecked")
-  private static FixtureInteraction getInteraction(String interactionClassName) {
-    if (interactionClassName == null) {
-      return new DefaultInteraction();
-    }
-    try {
-      return ((Class<FixtureInteraction>) Class.forName(interactionClassName)).newInstance();
-    } catch (Exception e) {
-      throw new SlimError(e);
-    }
-  }
-
-  public static FixtureInteraction getInteraction() {
-    return interaction;
   }
 }

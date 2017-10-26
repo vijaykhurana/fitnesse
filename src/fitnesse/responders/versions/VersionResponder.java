@@ -32,7 +32,7 @@ public class VersionResponder implements SecureResponder {
   private String resource;
 
   @Override
-  public Response makeResponse(FitNesseContext context, Request request) {
+  public Response makeResponse(FitNesseContext context, Request request) throws Exception{
     resource = request.getResource();
     version = request.getInput("version");
     if (version == null)
@@ -63,7 +63,7 @@ public class VersionResponder implements SecureResponder {
     html.put("rollbackVersion", version);
     html.put("localPath", name);
 
-    List<VersionInfo> versions = new ArrayList<VersionInfo>(page.getVersions());
+    List<VersionInfo> versions = new ArrayList<>(page.getVersions());
     Collections.sort(versions);
     Collections.reverse(versions);
     String nextVersion = selectNextVersion(versions, version);

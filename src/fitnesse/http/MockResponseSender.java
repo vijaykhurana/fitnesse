@@ -2,28 +2,28 @@
 // Released under the terms of the CPL Common Public License version 1.0.
 package fitnesse.http;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.io.PipedInputStream;
-import java.net.Socket;
+import java.io.UnsupportedEncodingException;
 
-import fitnesse.util.MockSocket;
+import util.FileUtil;
 
 public class MockResponseSender implements ResponseSender {
-  public MockSocket socket;
+  private final OutputStream output;
   protected boolean closed;
 
   public MockResponseSender() {
-    socket = new MockSocket("Mock");
+    this(new ByteArrayOutputStream());
+  }
+
+  public MockResponseSender(OutputStream output) {
+    this.output = output;
   }
 
   @Override
-  public void send(byte[] bytes) {
-    try {
-      socket.getOutputStream().write(bytes);
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
+  public void send(byte[] bytes) throws IOException {
+    output.write(bytes);
   }
 
   @Override
@@ -31,13 +31,8 @@ public class MockResponseSender implements ResponseSender {
     closed = true;
   }
 
-  @Override
-  public Socket getSocket() {
-    return socket;
-  }
-
-  public String sentData() {
-    return socket.getOutput();
+  public String sentData() throws UnsupportedEncodingException {
+    return ((ByteArrayOutputStream) output).toString(FileUtil.CHARENCODING);
   }
 
   public void doSending(Response response) throws IOException {
@@ -48,16 +43,4 @@ public class MockResponseSender implements ResponseSender {
   public boolean isClosed() {
     return closed;
   }
-
-  public static class OutputStreamSender extends MockResponseSender {
-    public OutputStreamSender(OutputStream out) {
-      socket = new MockSocket(new PipedInputStream(), out);
-    }
-
-    @Override
-    public void doSending(Response response) throws IOException {
-      response.sendTo(this);
-      assert closed;
-    }
   }
-}

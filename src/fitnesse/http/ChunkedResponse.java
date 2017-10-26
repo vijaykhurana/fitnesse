@@ -2,11 +2,12 @@
 // Released under the terms of the CPL Common Public License version 1.0.
 package fitnesse.http;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.Writer;
 import java.nio.ByteBuffer;
 
-public class ChunkedResponse extends Response {
+public class ChunkedResponse extends Response implements Closeable {
   private ResponseSender sender;
   private int bytesSent = 0;
   private boolean dontChunk = false;
@@ -20,7 +21,7 @@ public class ChunkedResponse extends Response {
   }
 
   @Override
-  public void sendTo(ResponseSender sender) {
+  public void sendTo(ResponseSender sender) throws IOException {
     this.sender = sender;
     sender.send(makeHttpHeaders().getBytes());
     chunckedDataProvider.startSending();
@@ -37,12 +38,12 @@ public class ChunkedResponse extends Response {
     return Integer.toHexString(value);
   }
 
-  public void add(String text) {
+  public void add(String text) throws IOException {
     if (text != null)
       add(getEncodedBytes(text));
   }
 
-  public void add(byte[] bytes) {
+  public void add(byte[] bytes) throws IOException {
     if (bytes == null || bytes.length == 0)
       return;
     if (dontChunk) {
@@ -56,33 +57,30 @@ public class ChunkedResponse extends Response {
     bytesSent += bytes.length;
   }
 
-  public void addTrailingHeader(String key, String value) {
+  public void addTrailingHeader(String key, String value) throws IOException {
     if (!dontChunk) {
       String header = key + ": " + value + CRLF;
       sender.send(header.getBytes());
     }
   }
 
-  public void closeChunks() {
+  public void closeChunks() throws IOException {
     if (!dontChunk) {
       sender.send(("0" + CRLF).getBytes());
     }
   }
 
-  public void closeTrailer() {
+  public void closeTrailer() throws IOException {
     if (!dontChunk) {
       sender.send(CRLF.getBytes());
     }
   }
 
-  public void close() {
-    sender.close();
-  }
-
-  public void closeAll() {
+  @Override
+  public void close() throws IOException {
     closeChunks();
     closeTrailer();
-    close();
+    sender.close();
   }
 
   @Override
@@ -100,22 +98,22 @@ public class ChunkedResponse extends Response {
 
   public Writer getWriter() {
     return new  Writer() {
-  
+
       @Override
       public void close() throws IOException {
         //sender.close();
       }
-  
+
       @Override
       public void flush() throws IOException {
         // sender.flush(); -- flush is done on write
       }
-  
+
       @Override
       public void write(String str) throws IOException {
         add(str);
       }
-      
+
       @Override
       public void write(char[] cbuf, int off, int len) throws IOException {
         write(new String(cbuf, off, len));

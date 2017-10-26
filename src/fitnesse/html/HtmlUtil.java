@@ -2,6 +2,8 @@
 // Released under the terms of the CPL Common Public License version 1.0.
 package fitnesse.html;
 
+import java.util.regex.Pattern;
+
 public class HtmlUtil {
   public static final HtmlElement BR = new RawHtml("<br/>");
   public static final HtmlElement HR = new RawHtml("<hr/>");
@@ -12,12 +14,13 @@ public class HtmlUtil {
   private static final String[] specialWikiChars = new String[]{"!", "|", "$"};
   private static final String[] specialWikiEscapes = new String[]{"&bang;", "&bar;", "&dollar;"};
 
-  public static HtmlTag makeDivTag(String divClass) {
-    HtmlTag div = new HtmlTag("div");
-    div.addAttribute("class", divClass);
-    div.add("");
-    return div;
-  }
+  // Source: http://dev.w3.org/html5/markup/common-models.html
+  public static final String HTML_CELL_CONTENT_PATTERN_TEXT = "<(p|hr|pre|ul|ol|dl|div|h[1-6]|hgroup|address|" +
+              "blockquote|ins|del|object|map|video|audio|figure|table|fieldset|canvas|a|em|strong|small|mark|" +
+              "abbr|dfn|i|b|s|u|code|var|samp|kbd|sup|sub|q|cite|span|br|ins|del|img|embed|object|video|audio|label|" +
+              "output|datalist|progress|command|canvas|time|meter)([ >].*</\\1>|[^>]*/>)";
+  private static final Pattern HTML_PATTERN = Pattern.compile("^" + HTML_CELL_CONTENT_PATTERN_TEXT + "$",
+                                                        Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
 
   public static HtmlTag makeBold(String content) {
     HtmlTag bold = new HtmlTag("b");
@@ -43,84 +46,18 @@ public class HtmlUtil {
     return link;
   }
 
-  public static String metaText(String text) {
-    return "<span class=\"meta\">" + text + "</span>";
-  }
-
-  public static HtmlTag makeJavascriptLink(String jsFile) {
-    HtmlTag scriptTag = new HtmlTag("script");
-    scriptTag.addAttribute("src", jsFile);
-    scriptTag.addAttribute("type", "text/javascript");
-    scriptTag.use("");
-    return scriptTag;
-  }
-  
-  public static String escapeHtmlForJavaScript(String html) {
-    html = html.replaceAll("\"", "\\\\\"");
-    html = html.replaceAll("\t", "\\\\t");
-    html = html.replaceAll("\n", "\\\\n");
-    html = html.replaceAll("\r", "\\\\r");
-    html = html.replaceAll(HtmlElement.endl, "\\\\n");
-    return html;
-  }
-  
-  public static HtmlTag makeAppendElementScript(String idElementToAppend, String htmlToAppend) {
-    HtmlTag scriptTag = new HtmlTag("script");
-    String getElement = "document.getElementById(\"" + idElementToAppend + "\")";
-    String escapedHtml = escapeHtmlForJavaScript(htmlToAppend);
-    
-    StringBuilder script = new StringBuilder();
-    script.append("var existingContent = ").append(getElement).append(".innerHTML;");
-    script.append(HtmlTag.endl);
-    script.append(getElement).append(".innerHTML = existingContent + \"").append(escapedHtml).append("\";");
-    script.append(HtmlTag.endl);
-    scriptTag.add(script.toString());
-    
-    return scriptTag;
-  }
-  
-  public static HtmlTag makeReplaceElementScript(String idElement, String newHtmlForElement) {
-    HtmlTag scriptTag = new HtmlTag("script");
-    String escapedHtml = escapeHtmlForJavaScript(newHtmlForElement);
-    scriptTag.add("document.getElementById(\"" + idElement + "\").innerHTML = \"" + escapedHtml + "\";");
-    return scriptTag;
-  }
-  
-  public static HtmlTag makeToggleClassScript(String idElement, String classToToggle) {
-    HtmlTag scriptTag = new HtmlTag("script");
-    scriptTag.add("$(\"#" + idElement + "\").toggleClass(\"" + classToToggle + "\");");
-    return scriptTag;
-  }
-  
-  public static HtmlTag makeInitErrorMetadataScript() {
-    HtmlTag scriptTag = new HtmlTag("script");
-    scriptTag.add("initErrorMetadata();");
-    return scriptTag;
-  }
-  
-  public static HtmlTag makeSilentLink(String href, HtmlElement content) {
-    HtmlTag link = new HtmlTag("a");
-    link.addAttribute("href", "#");
-    link.addAttribute("onclick", "doSilentRequest('" + href + "')");
-    link.add(content);
-    return link;
+  public static boolean isValidTableCellContent(String text) {
+    // performance improvement: First check 1st character.
+    return text.startsWith("<") && HTML_PATTERN.matcher(text).matches();
   }
 
   public static String escapeHTML(String value) {
       return replaceStrings(value, specialHtmlChars, specialHtmlEscapes);
   }
 
-  private static String replaceStrings(String value, String[] originalStrings, String[] replacementStrings) {
-        String result = value;
-        for (int i = 0; i < originalStrings.length; i++)
-            if (result.contains(originalStrings[i]))
-                result = result.replace(originalStrings[i], replacementStrings[i]);
-        return result;
-    }
-
   public static String unescapeHTML(String value) {
-        return replaceStrings(value, specialHtmlEscapes, specialHtmlChars);
-    }
+    return replaceStrings(value, specialHtmlEscapes, specialHtmlChars);
+  }
 
   public static String unescapeWiki(String value) {
       return replaceStrings(value, specialWikiEscapes, specialWikiChars);
@@ -128,5 +65,13 @@ public class HtmlUtil {
 
   public static String escapeWiki(String value) {
       return replaceStrings(value, specialWikiChars, specialWikiEscapes);
+  }
+
+  private static String replaceStrings(String value, String[] originalStrings, String[] replacementStrings) {
+    String result = value;
+    for (int i = 0; i < originalStrings.length; i++)
+      if (result.contains(originalStrings[i]))
+        result = result.replace(originalStrings[i], replacementStrings[i]);
+    return result;
   }
 }

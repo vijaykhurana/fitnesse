@@ -1,6 +1,7 @@
 package fitnesse.wikitext.parser;
 
 import fitnesse.wiki.WikiPage;
+import fitnesse.wiki.WikiSourcePage;
 import org.junit.Test;
 
 import java.util.ArrayList;
@@ -17,7 +18,7 @@ public class WikiSourcePageTest {
         root.makePage(page, "PageTwo");
         root.makePage(page, "PageThree");
         WikiSourcePage source = new WikiSourcePage(page);
-        ArrayList<String> names = new ArrayList<String>();
+        ArrayList<String> names = new ArrayList<>();
         for (SourcePage child: source.getChildren()) names.add(child.getName());
 
         assertEquals(2, names.size());

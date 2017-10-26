@@ -18,6 +18,7 @@ import fitnesse.slim.instructions.Instruction;
 import fitnesse.slim.instructions.MakeInstruction;
 import fitnesse.testsystems.ExecutionResult;
 import fitnesse.testsystems.TableCell;
+import fitnesse.testsystems.TestExecutionException;
 import fitnesse.testsystems.TestResult;
 import fitnesse.testsystems.slim.CustomComparator;
 import fitnesse.testsystems.slim.CustomComparatorRegistry;
@@ -32,8 +33,9 @@ public abstract class SlimTable {
   private String tableName;
   private int instructionNumber = 0;
   private String fixtureName;
+  private boolean isTearDown;
 
-  private List<SlimTable> children = new LinkedList<SlimTable>();
+  private List<SlimTable> children = new LinkedList<>();
   private SlimTable parent = null;
 
   private final SlimTestContext testContext;
@@ -42,7 +44,7 @@ public abstract class SlimTable {
   protected String id;
   protected CustomComparatorRegistry customComparatorRegistry;
 
-  private final Map<String, String> symbolsToStore = new HashMap<String, String>();
+  private final Map<String, String> symbolsToStore = new HashMap<>();
 
   public SlimTable(Table table, String id, SlimTestContext testContext) {
     this.id = id;
@@ -75,10 +77,9 @@ public abstract class SlimTable {
     return new FullExpansionSymbolReplacer(s).replace();
   }
 
-
   protected abstract String getTableType();
 
-  public abstract List<SlimAssertion> getAssertions() throws SyntaxError;
+  public abstract List<SlimAssertion> getAssertions() throws TestExecutionException;
 
   protected String makeInstructionTag() {
     return makeInstructionTag(instructionNumber++);
@@ -120,15 +121,23 @@ public abstract class SlimTable {
   }
 
   public void setFixtureName(String name){
-	  fixtureName = name;
+    fixtureName = name;
   }
-  
+
   protected String getFixtureName() {
-	if (fixtureName == null){  
+    if (fixtureName == null) {
       String tableHeader = table.getCellContents(0, 0);
       fixtureName = getFixtureName(tableHeader);
-	}
+    }
     return Disgracer.disgraceClassName(fixtureName);
+  }
+
+  public boolean isTearDown() {
+    return isTearDown;
+  }
+
+  public void setTearDown(boolean teardown) {
+    isTearDown = teardown;
   }
 
   protected String getFixtureName(String tableHeader) {
@@ -149,7 +158,7 @@ public abstract class SlimTable {
 
   protected Object[] gatherConstructorArgumentsStartingAt(int startingColumn, int row) {
     int columnCount = table.getColumnCountInRow(row);
-    List<String> arguments = new ArrayList<String>();
+    List<String> arguments = new ArrayList<>();
     for (int col = startingColumn; col < columnCount; col++) {
       arguments.add(table.getCellContents(col, row));
     }
@@ -183,7 +192,7 @@ public abstract class SlimTable {
   }
 
   protected List<List<String>> tableAsList() {
-    List<List<String>> tableArgument = new ArrayList<List<String>>();
+    List<List<String>> tableArgument = new ArrayList<>();
     int rows = table.getRowCount();
     for (int row = 1; row < rows; row++)
       tableArgument.add(tableRowAsList(row));
@@ -191,7 +200,7 @@ public abstract class SlimTable {
   }
 
   private List<String> tableRowAsList(int row) {
-    List<String> rowList = new ArrayList<String>();
+    List<String> rowList = new ArrayList<>();
     int cols = table.getColumnCountInRow(row);
     for (int col = 0; col < cols; col++)
       rowList.add(table.getCellContents(col, row));
@@ -270,14 +279,14 @@ public abstract class SlimTable {
   }
 
   class SymbolReplacer extends SlimSymbol{
-    private String toReplace; 
+    private String toReplace;
     public SymbolReplacer(String s) {
       super();
       toReplace=s;
     }
 
     //TODO: This is only implemented in the SlimServer but not in the Slim Client so it can't work properly :(
-    // Should be removed. Would this breaks other SLIM Client implementations .Net ... ? 
+    // Should be removed. Would this breaks other SLIM Client implementations .Net ... ?
     @Override
     protected String getSymbolValue(String symbolName) {
       String value = getSymbol(symbolName);
@@ -297,12 +306,12 @@ public abstract class SlimTable {
 //    protected String getSymbolValue(String symbolName){
 //      return getSymbol(symbolName);
 //    }
-    
+
     public String replace(){
       return replace(toReplace);
     }
   }
-  
+
 
   class FullExpansionSymbolReplacer extends SymbolReplacer {
     FullExpansionSymbolReplacer(String s) {
@@ -386,6 +395,10 @@ public abstract class SlimTable {
       super(col, row, table.getCellContents(col, row));
     }
 
+    public ReturnedValueExpectation(int col, int row, String expected) {
+        super(col, row, expected);
+	}
+
     @Override
     protected SlimTestResult createEvaluationMessage(String actual, String expected) {
       SlimTestResult testResult;
@@ -413,35 +426,41 @@ public abstract class SlimTable {
   }
 
   class ReturnedSymbolExpectation extends ReturnedValueExpectation {
-	  private String symbolName;
-	  private String assignToName = null;
-	  public ReturnedSymbolExpectation(int col, int row, String symbolName) {
-	      super(col, row);
-		  this.symbolName = symbolName;
-	    }
-	  public ReturnedSymbolExpectation(int col, int row, String symbolName, String assignToName) {
-	      super(col, row);
-		  this.symbolName = symbolName;
-		  this.assignToName = assignToName;
-	    }
+    private String symbolName;
+    private String assignToName = null;
+    public ReturnedSymbolExpectation(int col, int row, String symbolName) {
+      super(col, row);
+      this.symbolName = symbolName;
+    }
 
-	    @Override
-	    public TestResult evaluateExpectation(Object returnValue) {
-        String value = getSymbol(this.symbolName);
-	      return super.evaluateExpectation(value);
-	    }
-	    
-	    @Override
-	    protected SlimTestResult createEvaluationMessage(String actual, String expected) {
-	      if (assignToName != null){	
-	        setSymbol(assignToName, actual);
-	        return SlimTestResult.plain(String.format("$%s<-[%s]", assignToName, actual));
-	      }else{
-	    	  return super.createEvaluationMessage(actual, expected);
-	      }
-	    }
+    public ReturnedSymbolExpectation(String expected, int col, int row, String symbolName) {
+      super(col, row, expected);
+      this.symbolName = symbolName;
+    }
+
+    public ReturnedSymbolExpectation(int col, int row, String symbolName, String assignToName) {
+      super(col, row);
+      this.symbolName = symbolName;
+      this.assignToName = assignToName;
+    }
+
+    @Override
+    public TestResult evaluateExpectation(Object returnValue) {
+      String value = getSymbol(this.symbolName);
+      return super.evaluateExpectation(value);
+    }
+
+    @Override
+    protected SlimTestResult createEvaluationMessage(String actual, String expected) {
+      if (assignToName != null) {
+        setSymbol(assignToName, actual);
+        return SlimTestResult.plain(String.format("$%s<-[%s]", assignToName, actual));
+      }else{
+        return super.createEvaluationMessage(actual, expected);
+      }
+    }
   }
-  
+
   class RejectedValueExpectation extends ReturnedValueExpectation {
     public RejectedValueExpectation(int col, int row) {
       super(col, row);

@@ -7,6 +7,7 @@ import java.util.Iterator;
 import java.util.List;
 
 import fitnesse.slim.SlimError;
+import fitnesse.wikitext.parser.Include;
 import org.htmlparser.Node;
 import org.htmlparser.Parser;
 import org.htmlparser.lexer.Lexer;
@@ -19,8 +20,8 @@ import static fitnesse.util.HtmlParserTools.*;
 
 public class HtmlTableScanner implements TableScanner<HtmlTable> {
 
-  private List<HtmlTable> tables = new ArrayList<HtmlTable>(16);
-  private List<Node> nodes = new ArrayList<Node>(512);
+  private List<HtmlTable> tables = new ArrayList<>(16);
+  private List<Node> nodes = new ArrayList<>(512);
 
   public HtmlTableScanner(String page) {
     if (page == null || page.equals(""))
@@ -43,18 +44,24 @@ public class HtmlTableScanner implements TableScanner<HtmlTable> {
   }
 
   private void scanForTables(NodeList nodes) {
+    scanForTables(nodes, false);
+  }
+
+  private void scanForTables(NodeList nodes, boolean markAsTeardown) {
     for (int i = 0; i < nodes.size(); i++) {
       Node node = nodes.elementAt(i);
       if (node instanceof TableTag) {
         TableTag tableTag = deepClone((TableTag) node);
-        tables.add(new HtmlTable(tableTag));
+        HtmlTable htmlTable = new HtmlTable(tableTag);
+        htmlTable.setTearDown(markAsTeardown);
+        tables.add(htmlTable);
         this.nodes.add(tableTag);
       } else {
         this.nodes.add(flatClone(node));
 
         NodeList children = node.getChildren();
         if (children != null) {
-          scanForTables(children);
+          scanForTables(children, markAsTeardown || nodeHasClass(node, Include.TEARDOWN));
         }
 
         Node endNode = endTag(node);

@@ -4,12 +4,14 @@ package fitnesse.testsystems.fit;
 
 import java.io.IOException;
 import java.lang.reflect.Method;
+import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import fitnesse.socketservice.PlainServerSocketFactory;
 import fitnesse.socketservice.SocketService;
 import fitnesse.testsystems.CommandRunner;
 import fitnesse.testsystems.ExecutionLogListener;
@@ -36,8 +38,9 @@ public class CommandRunningFitClient extends FitClient {
   }
 
   public void start() throws IOException {
-    server = new SocketService(0, new SocketCatcher(this, ticketNumber), true);
-    int port = server.getPort();
+    ServerSocket serverSocket = new PlainServerSocketFactory().createServerSocket(0);
+    server = new SocketService(new SocketCatcher(this, ticketNumber), true, serverSocket);
+    int port = serverSocket.getLocalPort();
     try {
       commandRunningStrategy.start(this, port, ticketNumber);
       waitForConnection();
@@ -116,10 +119,10 @@ public class CommandRunningFitClient extends FitClient {
       this.executionLogListener = executionLogListener;
     }
 
-    private void makeCommandRunner(int port, int ticketNumber) {
+    private void makeCommandRunner(int port, int ticketNumber) throws UnknownHostException {
       String[] fitArguments = { getLocalhostName(), Integer.toString(port), Integer.toString(ticketNumber) };
       String[] commandLine = (String[]) ArrayUtils.addAll(command, fitArguments);
-      commandRunner = new CommandRunner(commandLine, "", environmentVariables, executionLogListener);
+      commandRunner = new CommandRunner(commandLine, environmentVariables, executionLogListener);
     }
 
     @Override
@@ -195,6 +198,7 @@ public class CommandRunningFitClient extends FitClient {
               fitClient.notify();
               Exception e = new Exception(
                       "FitClient: external process terminated before a connection could be established.");
+              // TODO: use executionLogListener.exceptionOccurred(e)
               commandRunner.exceptionOccurred(e);
               fitClient.exceptionOccurred(e);
             }
@@ -273,12 +277,8 @@ public class CommandRunningFitClient extends FitClient {
 
   }
 
-  private static String getLocalhostName() {
-    try {
-      return java.net.InetAddress.getLocalHost().getHostName();
-    } catch (UnknownHostException e) {
-      throw new RuntimeException(e.getMessage(), e);
-    }
+  private static String getLocalhostName() throws UnknownHostException {
+    return java.net.InetAddress.getLocalHost().getHostName();
   }
 
 }

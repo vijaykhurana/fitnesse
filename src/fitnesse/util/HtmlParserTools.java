@@ -5,6 +5,7 @@ import java.util.Vector;
 import org.htmlparser.Attribute;
 import org.htmlparser.Node;
 import org.htmlparser.Tag;
+import org.htmlparser.nodes.TagNode;
 import org.htmlparser.util.NodeList;
 
 /**
@@ -49,6 +50,7 @@ public final class HtmlParserTools {
    * @param <T> Node of child of Node
    * @return deepcloned version of node
    */
+  @SuppressWarnings("unchecked")
   public static <T extends Node> T deepClone(T node) {
     return (T) deepClone(new NodeList(node), null).elementAt(0);
   }
@@ -82,7 +84,7 @@ public final class HtmlParserTools {
     try {
       newNode = (Node) node.clone();
     } catch (CloneNotSupportedException e) {
-      throw new RuntimeException("Node must be cloneable", e);
+      throw new IllegalStateException("Node must be cloneable", e);
     }
     node.setParent(clonedParent);
     if (newNode instanceof Tag) {
@@ -93,11 +95,27 @@ public final class HtmlParserTools {
   }
 
   private static Vector cloneAttributes(Vector<Attribute> attributes) {
-    Vector<Attribute> newAttributes = new Vector<Attribute>(attributes.size());
+    Vector<Attribute> newAttributes = new Vector<>(attributes.size());
     for (Attribute a : attributes) {
       newAttributes.add(new Attribute(a.getName(), a.getAssignment(), a.getValue(), a.getQuote()));
     }
     return newAttributes;
+  }
+
+  public static boolean nodeHasClass(Node node, String classToCheck) {
+    if (!(node instanceof TagNode)) {
+      return false;
+    }
+    String classAttribute = ((TagNode) node).getAttribute("class");
+    if (null == classAttribute) {
+      return false;
+    }
+    for (String className : classAttribute.split(" ")) {
+      if (classToCheck.equals(className)) {
+        return true;
+      }
+    }
+    return false;
   }
 
 }

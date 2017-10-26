@@ -22,7 +22,7 @@ public class Alias extends SymbolType implements Rule, Translation {
         Symbol link = parser.parseToIgnoreFirstWithSymbols(SymbolType.CloseBracket, SymbolProvider.aliasLinkProvider);
         if (!parser.isMoveNext(SymbolType.CloseBracket)) return Symbol.nothing;
 
-        return new Maybe<Symbol>(current.add(tag).add(link));
+        return new Maybe<>(current.add(tag).add(link));
     }
 
     @Override
@@ -34,7 +34,7 @@ public class Alias extends SymbolType implements Rule, Translation {
         ParsingPage parsingPage = ((HtmlTranslator)translator).getParsingPage();
         Symbol linkReference = Parser.make(parsingPage, linkReferenceString).parseToIgnoreFirst(Comment.symbolType);
 
-        if (linkReference.childAt(0).isType(WikiWord.symbolType) || PathParser.isWikiPath(linkReference.childAt(0).getContent())) {
+        if (linkReference.childAt(0).isType(WikiWord.symbolType) || (linkReference.getChildren().size() == 1 && PathParser.isWikiPath(linkReference.childAt(0).getContent()))) {
             return new WikiWordBuilder(translator.getPage(), linkReference.childAt(0).getContent(), linkBody)
                     .buildLink(translator.translate(linkReference.childrenAfter(0)), linkBody);
         }

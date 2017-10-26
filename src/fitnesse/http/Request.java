@@ -32,9 +32,9 @@ public class Request {
   protected String requestURI;
   private String resource;
   protected String queryString;
-  protected Map<String, String> inputs = new HashMap<String, String>();
-  protected Map<String, String> headers = new HashMap<String, String>();
-  protected Map<String, UploadedFile> uploadedFiles = new HashMap<String, UploadedFile>();
+  protected Map<String, String> inputs = new HashMap<>();
+  protected Map<String, String> headers = new HashMap<>();
+  protected Map<String, UploadedFile> uploadedFiles = new HashMap<>();
   protected String entityBody = "";
   protected String requestLine;
   protected String authorizationUsername;
@@ -42,13 +42,8 @@ public class Request {
   private volatile boolean hasBeenParsed;
   private long bytesParsed = 0;
 
-  /**
-   * If SSL is being used the DN of the peer certificate, otherwise null.
-   */
-  private String peerDn;
-
   public static Set<String> buildAllowedMethodList() {
-    Set<String> methods = new HashSet<String>(20);
+    Set<String> methods = new HashSet<>(20);
     methods.add("GET");
     methods.add("POST");
     return methods;
@@ -81,7 +76,7 @@ public class Request {
   }
 
   private Map<String, String> parseHeaders(StreamReader reader) throws IOException {
-    HashMap<String, String> headers = new HashMap<String, String>();
+    HashMap<String, String> headers = new HashMap<>();
     String line = reader.readLine();
     while (!"".equals(line)) {
       Matcher match = headerPattern.matcher(line);
@@ -179,7 +174,7 @@ public class Request {
   protected void parseQueryString(String queryString) {
     Matcher match = queryStringPattern.matcher(queryString);
     while (match.find()) {
-      String key = match.group(1);
+      String key = decodeContent(match.group(1));
       String value = decodeContent(match.group(2));
       addUniqueInputString(key, value);
     }
@@ -306,16 +301,12 @@ public class Request {
     return hasBeenParsed;
   }
 
-  public String getUserpass(String headerValue) {
+  public String getUserpass(String headerValue) throws UnsupportedEncodingException {
     String encodedUserpass = headerValue.substring(6);
-    try {
-      return Base64.decode(encodedUserpass);
-    } catch (UnsupportedEncodingException e) {
-      throw new RuntimeException(e);
-    }
+    return Base64.decode(encodedUserpass);
   }
 
-  public void getCredentials() {
+  public void getCredentials() throws UnsupportedEncodingException {
     if (authorizationUsername != null)
       return;
     if (hasHeader("Authorization")) {
@@ -335,14 +326,6 @@ public class Request {
 
   public String getAuthorizationPassword() {
     return authorizationPassword;
-  }
-
-  public String getPeerDn() {
-    return peerDn;
-  }
-
-  public void setPeerDn(String peerDn) {
-    this.peerDn = peerDn;
   }
 
   public long numberOfBytesParsed() {

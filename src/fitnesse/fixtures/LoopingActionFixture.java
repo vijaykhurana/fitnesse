@@ -10,7 +10,7 @@ import fit.Parse;
 
 public class LoopingActionFixture extends ActionFixture {
 
-  Stack<Parse> loopContexts = new Stack<Parse>();
+  Stack<Parse> loopContexts = new Stack<>();
   Parse rows;
 
   boolean isSpecialName(String name) {
@@ -19,7 +19,7 @@ public class LoopingActionFixture extends ActionFixture {
 
   Method getAction(String name) throws SecurityException, NoSuchMethodException {
     String methodName = isSpecialName(name) ? ("action_" + name) : name;
-    return getClass().getMethod(methodName, empty);
+    return getClass().getMethod(methodName, new Class<?>[]{});
   }
 
   @Override

@@ -11,7 +11,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.net.Socket;
 
 import org.junit.After;
 import org.junit.Before;
@@ -120,11 +119,5 @@ public class InputStreamResponseTest implements ResponseSender {
   @Override
   public void close() {
     closed = true;
-  }
-
-  @Override
-  public Socket getSocket() //TODO-MdM maybe get rid of this method.
-  {
-    return null;
   }
 }

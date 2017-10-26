@@ -15,7 +15,7 @@ import fitnesse.wiki.VersionInfo;
 public class MemoryVersionsController implements VersionsController {
 
 
-  private Map<String, FileVersions> versions = new HashMap<String, FileVersions>();
+  private Map<String, FileVersions> versions = new HashMap<>();
 
   private VersionsController persistence;
 
@@ -24,7 +24,7 @@ public class MemoryVersionsController implements VersionsController {
   }
 
   @Override
-  public FileVersion[] getRevisionData(String label, File... files) {
+  public FileVersion[] getRevisionData(String label, File... files) throws IOException {
     if (label == null) {
       return persistence.getRevisionData(null, files);
     }
@@ -56,7 +56,7 @@ public class MemoryVersionsController implements VersionsController {
   }
 
   @Override
-  public void delete(FileVersion... files) {
+  public void delete(File... files) throws IOException {
     persistence.delete(files);
   }
 
@@ -71,7 +71,7 @@ public class MemoryVersionsController implements VersionsController {
   }
 
   private static class FileVersions {
-    protected Map<String, FileVersion[]> versions = new TreeMap<String, FileVersion[]>();
+    protected Map<String, FileVersion[]> versions = new TreeMap<>();
 
     protected VersionInfo makeVersion(FileVersion... current) {
       VersionInfo version = makeVersionInfo(current[0]);
@@ -85,7 +85,7 @@ public class MemoryVersionsController implements VersionsController {
     }
 
     public Collection<VersionInfo> history() {
-      Collection<VersionInfo> set = new LinkedList<VersionInfo>();
+      Collection<VersionInfo> set = new LinkedList<>();
       for (Map.Entry<String, FileVersion[]> entry : versions.entrySet()) {
         set.add(makeVersionInfo(entry.getValue()[0], entry.getKey()));
       }

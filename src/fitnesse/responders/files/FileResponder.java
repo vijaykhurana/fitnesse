@@ -37,7 +37,7 @@ public class FileResponder implements SecureResponder {
   Date lastModifiedDate;
 
   @Override
-  public Response makeResponse(FitNesseContext context, Request request) throws IOException {
+  public Response makeResponse(FitNesseContext context, Request request) throws Exception {
     String rootPath = context.getRootPagePath();
     try {
       resource = URLDecoder.decode(request.getResource(), FileUtil.CHARENCODING);
@@ -60,13 +60,13 @@ public class FileResponder implements SecureResponder {
       return new NotFoundResponder().makeResponse(context, request);
     }
   }
-  
+
 
   private boolean canLoadFromClasspath() {
     return resource.startsWith("files/fitnesse/");
   }
 
-  private Response makeClasspathResponse(FitNesseContext context, Request request) throws IOException {
+  private Response makeClasspathResponse(FitNesseContext context, Request request) throws Exception {
 
     determineLastModifiedInfo(LAST_MODIFIED_FOR_RESOURCES);
 
@@ -74,7 +74,7 @@ public class FileResponder implements SecureResponder {
       return createNotModifiedResponse();
 
     String classpathResource = "/fitnesse/resources/" + resource.substring("files/fitnesse/".length());
-    
+
     InputStream input = getClass().getResourceAsStream(classpathResource);
     if (input == null) {
       return new NotFoundResponder().makeResponse(context, request);
@@ -166,6 +166,11 @@ public class FileResponder implements SecureResponder {
             file.getCanonicalFile());
   }
 
+  public static boolean isInFilesFitNesseDirectory(File rootPath, File file) throws IOException {
+    return isInSubDirectory(new File(new File(rootPath, "files"), "fitnesse").getCanonicalFile(),
+            file.getCanonicalFile());
+  }
+
   private static boolean isInSubDirectory(File dir, File file) {
     return file != null && (file.equals(dir) || isInSubDirectory(dir, file.getParentFile()));
   }
@@ -178,7 +183,7 @@ public class FileResponder implements SecureResponder {
         try {
           return new File(context.getRootPagePath(), URLDecoder.decode(request.getResource(), FileUtil.CHARENCODING)).isDirectory();
         } catch (UnsupportedEncodingException e) {
-          throw new RuntimeException("Invalid URL encoding", e);
+          throw new IllegalArgumentException("Invalid URL encoding", e);
         }
       }
     };

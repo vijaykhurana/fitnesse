@@ -8,10 +8,7 @@ import fitnesse.html.HtmlTag;
 import fitnesse.html.HtmlUtil;
 import fitnesse.html.RawHtml;
 import fitnesse.testrunner.WikiTestPageUtil;
-import fitnesse.testsystems.ExecutionResult;
-import fitnesse.testsystems.TestPage;
-import fitnesse.testsystems.TestSummary;
-import fitnesse.testsystems.TestSystem;
+import fitnesse.testsystems.*;
 import fitnesse.wiki.PageCrawler;
 import fitnesse.wiki.WikiPage;
 
@@ -30,12 +27,16 @@ public abstract class InteractiveFormatter extends BaseFormatter implements Test
     this.writer = writer;
   }
 
-  protected void writeData(String output) throws IOException {
-    writer.write(output);
+  protected void writeData(String output) {
+    try {
+      writer.write(output);
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
   }
 
-  protected void updateSummaryDiv(String html) throws IOException {
-    writeData(HtmlUtil.makeReplaceElementScript("test-summary", html).html());
+  protected void updateSummaryDiv(String html) {
+    writeData(JavascriptUtil.makeReplaceElementScript("test-summary", html).html());
   }
 
   protected String getRelativeName() {
@@ -51,17 +52,17 @@ public abstract class InteractiveFormatter extends BaseFormatter implements Test
     return relativeName;
   }
 
-  protected void addStopLink(String stopResponderId) throws IOException {
+  protected void addStopLink(String stopResponderId) {
     String link = "?responder=stoptest&id=" + stopResponderId;
 
-    HtmlTag status = HtmlUtil.makeSilentLink(link, new RawHtml("Stop Test"));
+    HtmlTag status = JavascriptUtil.makeSilentLink(link, new RawHtml("Stop Test"));
     status.addAttribute("class", "stop");
 
-    writeData(HtmlUtil.makeReplaceElementScript("test-action", status.html()).html());
+    writeData(JavascriptUtil.makeReplaceElementScript("test-action", status.html()).html());
   }
 
-  protected void removeStopTestLink() throws IOException {
-    HtmlTag script = HtmlUtil.makeReplaceElementScript("test-action", "");
+  protected void removeStopTestLink() {
+    HtmlTag script = JavascriptUtil.makeReplaceElementScript("test-action", "");
     writeData(script.html());
   }
 
@@ -80,11 +81,8 @@ public abstract class InteractiveFormatter extends BaseFormatter implements Test
 
   private void errorOccurred(Throwable cause) {
     wasInterrupted = true;
-    try {
-      writeData(String.format("<span class=\"error\">Could not complete testing: %s</span>", cause.toString()));
-    } catch (IOException e) {
-      throw new RuntimeException("Unable to write response to output: " + cause.toString(), e);
-    }
+
+    writeData(String.format("<span class=\"error\">Could not complete testing: %s</span>", cause.toString()));
   }
 
   @Override
@@ -95,14 +93,14 @@ public abstract class InteractiveFormatter extends BaseFormatter implements Test
   }
 
   @Override
-  public void testStarted(TestPage testPage) throws IOException {
+  public void testStarted(TestPage testPage) {
     relativeName = getRelativeName(testPage);
   }
 
   public String testSummary() {
     String summaryContent = wasInterrupted ? TESTING_INTERRUPTED : "";
     summaryContent += makeSummaryContent();
-    HtmlTag script = HtmlUtil.makeReplaceElementScript("test-summary", summaryContent);
+    HtmlTag script = JavascriptUtil.makeReplaceElementScript("test-summary", summaryContent);
     script.add("document.getElementById(\"test-summary\").className = \""
       + (wasInterrupted ? ExecutionResult.ERROR : ExecutionResult.getExecutionResult(relativeName, getAssertionCounts())) + "\";");
     return script.html();
@@ -110,7 +108,7 @@ public abstract class InteractiveFormatter extends BaseFormatter implements Test
 
   protected abstract String makeSummaryContent();
 
-  public void finishWritingOutput() throws IOException {
+  public void finishWritingOutput() {
     writeData(testSummary());
   }
 
@@ -119,19 +117,19 @@ public abstract class InteractiveFormatter extends BaseFormatter implements Test
   }
 
   @Override
-  public void unableToStartTestSystem(String testSystemName, Throwable cause) throws IOException {
+  public void unableToStartTestSystem(String testSystemName, Throwable cause) {
     writeData(String.format("<span class=\"error\">Unable to start test system '%s': %s</span>", testSystemName, cause.toString()));
   }
 
-  public void setTrackingId(String stopResponderId) throws IOException {
+  public void setTrackingId(String stopResponderId) {
     addStopLink(stopResponderId);
   }
 
-  protected void AddLogLink() throws IOException {
-    writeData(HtmlUtil.makeReplaceElementScript("test-action", executionStatus()).html());
+  protected void AddLogLink() {
+    writeData(JavascriptUtil.makeReplaceElementScript("test-action", executionStatus()).html());
   }
 
-  protected void maybeMakeErrorNavigatorVisible() throws IOException {
+  protected void maybeMakeErrorNavigatorVisible() {
     if(exceptionsOrErrorsExist()){
       writeData(initErroMetadata());
     }
@@ -149,12 +147,12 @@ public abstract class InteractiveFormatter extends BaseFormatter implements Test
   }
 
   private String initErroMetadata() {
-    HtmlTag init = HtmlUtil.makeInitErrorMetadataScript();
+    HtmlTag init = JavascriptUtil.makeInitErrorMetadataScript();
     return init.html();
   }
 
   public static String makeExecutionStatusLink(ExecutionStatus executionStatus) {
-    HtmlTag status = HtmlUtil.makeLink("?executionLog", executionStatus.getMessage());
+    HtmlTag status = HtmlUtil.makeLink("?executionLog", "Execution Log");
     status.addAttribute("class", executionStatus.getStyle());
     return status.html();
   }

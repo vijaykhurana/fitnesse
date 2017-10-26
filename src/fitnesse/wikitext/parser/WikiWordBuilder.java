@@ -1,11 +1,6 @@
 package fitnesse.wikitext.parser;
 
 import fitnesse.html.HtmlTag;
-import fitnesse.wiki.PathParser;
-import fitnesse.wiki.WikiPage;
-import org.apache.commons.lang.StringUtils;
-
-import java.util.Arrays;
 
 public class WikiWordBuilder {
     private final SourcePage currentPage;
@@ -18,26 +13,6 @@ public class WikiWordBuilder {
         this.linkBody = linkBody;
         this.wikiWordPath = makePath(currentPage, pagePath);
         this.qualifiedName = currentPage.makeFullPathOfTarget(wikiWordPath);
-    }
-
-    public static String expandPrefix(WikiPage wikiPage, String theWord) {
-      if (theWord.charAt(0) == '^' || theWord.charAt(0) == '>') {
-        String prefix = wikiPage.getName();
-        return String.format("%s.%s", prefix, theWord.substring(1));
-      } else if (theWord.charAt(0) == '<') {
-        String undecoratedPath = theWord.substring(1);
-        String[] pathElements = undecoratedPath.split("\\.");
-        String target = pathElements[0];
-        //todo rcm, this loop is duplicated in PageCrawlerImpl.getSiblingPage
-        for (WikiPage current = wikiPage.getParent(); !current.isRoot(); current = current.getParent()) {
-          if (current.getName().equals(target)) {
-            pathElements[0] = PathParser.render(current.getPageCrawler().getFullPath());
-            return "." + StringUtils.join(Arrays.asList(pathElements), ".");
-          }
-        }
-        return "." + undecoratedPath;
-      }
-      return theWord;
     }
 
     public String buildLink(String pageSuffix, String originalName) {
@@ -68,7 +43,7 @@ public class WikiWordBuilder {
         }
         return content;
     }
-    
+
     private String makeLinkToExistingWikiPage(String qualifiedName, String linkBody, String linkClass) {
         HtmlTag link = new HtmlTag("a", linkBody);
         link.addAttribute("href", qualifiedName);

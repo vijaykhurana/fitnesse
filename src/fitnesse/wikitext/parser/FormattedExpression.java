@@ -3,6 +3,7 @@ package fitnesse.wikitext.parser;
 import fitnesse.html.HtmlUtil;
 
 import java.util.Calendar;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -13,12 +14,26 @@ public class FormattedExpression {
     private String format;
     private char conversion = '?';
     private String expression;
+    private Maybe<String> formatLocale;
+    private Locale locale;
 
-    public FormattedExpression(String input) { this.input = input; }
+    public FormattedExpression(String input, Maybe<String> formatLocale) {
+        this.input = input;
+        this.formatLocale = formatLocale;
+    }
 
     public Maybe<String> evaluate() {
         parseFormat();
-        return !expression.isEmpty() ? evaluateAndFormat() : new Maybe<String>("");
+        selectLocale();
+        return !expression.isEmpty() ? evaluateAndFormat() : new Maybe<>("");
+    }
+
+    private void selectLocale() {
+        if(formatLocale.isNothing() || formatLocale.getValue().isEmpty()) {
+            locale = Locale.getDefault();
+        } else {
+            locale = Locale.forLanguageTag(formatLocale.getValue());
+        }
     }
 
     private void parseFormat() {
@@ -43,33 +58,33 @@ public class FormattedExpression {
         Long iResult = Math.round(result);
 
         if (format == null)
-            return new Maybe<String>(result.equals(iResult.doubleValue()) ? iResult.toString() : result.toString());
+            return new Maybe<>(result.equals(iResult.doubleValue()) ? iResult.toString() : result.toString());
 
         if ("aAdhHoOxX".indexOf(conversion) >= 0) //...use the integer
-            return new Maybe<String>(String.format(format, iResult));
+            return new Maybe<>(String.format(locale, format, iResult));
 
         if ("bB".indexOf(conversion) >= 0) //...use boolean
-            return new Maybe<String>(result == 0.0 ? "false" : "true");
+            return new Maybe<>(result == 0.0 ? "false" : "true");
 
         if ("sScC".indexOf(conversion) >= 0) { //...string & character formatting; use the double
             String sString;
             boolean isInt = result.equals(iResult.doubleValue());
             if (isInt)
-                sString = String.format(format, iResult.toString());
+                sString = String.format(locale, format, iResult.toString());
             else
-                sString = String.format(format, result.toString());
+                sString = String.format(locale, format, result.toString());
 
-            return new Maybe<String>(sString.replaceAll(" ", HtmlUtil.NBSP.html()));
+            return new Maybe<>(sString.replaceAll(" ", HtmlUtil.NBSP.html()));
         }
 
         if ("tT".indexOf(conversion) >= 0) { //...date
             Calendar cal = Calendar.getInstance();
             cal.setTimeInMillis(iResult);
-            return new Maybe<String>(String.format(format, cal.getTime()));
+            return new Maybe<>(String.format(locale, format, cal.getTime()));
         }
 
         if ("eEfgG".indexOf(conversion) >= 0)  //...use the double
-            return new Maybe<String>(String.format(format, result));
+            return new Maybe<>(String.format(locale, format, result));
 
         return Maybe.nothingBecause("invalid format: " + format);
     }

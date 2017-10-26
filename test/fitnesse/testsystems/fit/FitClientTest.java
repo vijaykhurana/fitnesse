@@ -18,8 +18,8 @@ import org.junit.Test;
 import fitnesse.util.TimeMeasurement;
 
 public class FitClientTest implements FitClientListener {
-  private List<String> outputs = new ArrayList<String>();
-  private List<TestSummary> counts = new ArrayList<TestSummary>();
+  private List<String> outputs = new ArrayList<>();
+  private List<TestSummary> counts = new ArrayList<>();
   private CommandRunningFitClient client;
   private boolean exceptionOccurred = false;
 
@@ -27,7 +27,7 @@ public class FitClientTest implements FitClientListener {
   public void setUp() throws Exception {
     CommandRunningFitClient.TIMEOUT = 5000;
     client = new CommandRunningFitClient(new CommandRunningFitClient.OutOfProcessCommandRunner(
-        new String[] { "java", "-cp", "classes", "fit.FitServer", "-v" }, null, new CompositeExecutionLogListener()));
+        new String[] { "java", "-cp", "build/classes/main", "fit.FitServer", "-v" }, null, new CompositeExecutionLogListener()));
     client.addFitClientListener(this);
   }
 
@@ -57,7 +57,7 @@ public class FitClientTest implements FitClientListener {
     assertFalse(exceptionOccurred);
     assertEquals(1, outputs.size());
     assertEquals(1, counts.size());
-    assertSubString("class", (String) outputs.get(0));
+    assertSubString("class", outputs.get(0));
     assertEquals(1, counts.get(0).getRight());
   }
 
